@@ -12,10 +12,12 @@ import (
 // Section 10.3.5 - Media Device Path
 const (
 	_ DevicePathSubType = iota
-	HardDriveMediaDevice
-	CDRomMediaDevice
-	_
-	FileTypeMediaDevice
+	HardDriveDevicePath
+	CDRomDevicePath
+	VendorMediaDevicePath
+	FilePathDevicePath
+	MediaProtocolDevicePath
+	PIWGFirmwareDevicePath
 )
 
 type HardDriveMediaDevicePath struct {
@@ -33,9 +35,14 @@ type FileTypeMediaDevicePath struct {
 	PathName []byte
 }
 
+type FirmwareFielMediaDevicePath struct {
+	EFIDevicePath
+	FirmwareFileName [16]byte
+}
+
 func ParseMediaDevicePath(f *bytes.Reader, efi *EFIDevicePath) EFILoadOptions {
 	switch efi.SubType {
-	case HardDriveMediaDevice:
+	case HardDriveDevicePath:
 		m := HardDriveMediaDevicePath{EFIDevicePath: *efi}
 		// var m HardDriveMediaDevicePath
 		if err := binary.Read(f, binary.LittleEndian, &m.PartitionNumber); err != nil {
@@ -57,12 +64,18 @@ func ParseMediaDevicePath(f *bytes.Reader, efi *EFIDevicePath) EFILoadOptions {
 			log.Fatal(err)
 		}
 		return m
-	case FileTypeMediaDevice:
+	case FilePathDevicePath:
 		file := FileTypeMediaDevicePath{EFIDevicePath: *efi}
 		file.PathName = util.ReadNullString(f)
 		return file
+	case PIWGFirmwareDevicePath:
+		file := FirmwareFielMediaDevicePath{EFIDevicePath: *efi}
+		if err := binary.Read(f, binary.LittleEndian, &file.FirmwareFileName); err != nil {
+			log.Fatal(err)
+		}
+		return file
 	default:
-		log.Fatalf("Not implemented EFIDevicePath type: %x", efi.SubType)
+		log.Printf("Not implemented MediaDevicePath type: %x", efi.SubType)
 	}
 	return nil
 }
