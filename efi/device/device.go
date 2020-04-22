@@ -14,7 +14,7 @@ type DevicePathType uint8
 
 const (
 	_ DevicePathType = iota
-	HardwareDevicePath
+	Hardware
 	ACPI
 	MessagingDevicePath
 	MediaDevicePath
@@ -54,6 +54,9 @@ func ParseDevicePath(f *bytes.Reader) []*EFILoadOptions {
 			log.Fatalf("Failed ParseDevicePath binary.Read: %s\n", err)
 		}
 		switch efidevice.Type {
+		case Hardware:
+			d := ParseHardwareDevicePath(f, &efidevice)
+			ret = append(ret, &d)
 		case ACPI:
 			d := ParseACPIDevicePath(f, &efidevice)
 			ret = append(ret, &d)
