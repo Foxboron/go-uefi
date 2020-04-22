@@ -57,6 +57,9 @@ func ParseDevicePath(f *bytes.Reader) []*EFILoadOptions {
 		case MediaDevicePath:
 			d := ParseMediaDevicePath(f, &efidevice)
 			ret = append(ret, &d)
+		case MessagingDevicePath:
+			d := ParseMessagingDevicePath(f, &efidevice)
+			ret = append(ret, &d)
 		case EndOfHardwareDevicePath:
 			log.Printf("Reached end of HardwareDevicePath: %+v\n", efidevice)
 			goto end
