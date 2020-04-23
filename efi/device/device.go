@@ -10,6 +10,14 @@ import (
 	"github.com/foxboron/goefi/efi/util"
 )
 
+type EFILoadOption struct {
+	Attributes         attributes.Attributes
+	FilePathListLength uint16
+	Description        []byte
+	FilePath           []*EFIDevicePath
+	Path               []byte
+}
+
 type DevicePathType uint8
 
 const (
@@ -35,19 +43,16 @@ type EFIDevicePath struct {
 	Length  [2]uint8
 }
 
-type EFILoadOption struct {
-	Attributes         attributes.Attributes
-	FilePathListLength uint16
-	Description        []byte
-	FilePath           []*EFIDevicePath
-	Path               []byte
+type EFIDevicePaths interface {
+	Format() string
 }
 
-type EFILoadOptions interface {
+func (e EFIDevicePath) Format() string {
+	return "No format"
 }
 
-func ParseDevicePath(f *bytes.Reader) []*EFILoadOptions {
-	var ret []*EFILoadOptions
+func ParseDevicePath(f *bytes.Reader) []EFIDevicePaths {
+	var ret []EFIDevicePaths
 	for {
 		var efidevice EFIDevicePath
 		if err := binary.Read(f, binary.LittleEndian, &efidevice); err != nil {
@@ -56,21 +61,21 @@ func ParseDevicePath(f *bytes.Reader) []*EFILoadOptions {
 		switch efidevice.Type {
 		case Hardware:
 			d := ParseHardwareDevicePath(f, &efidevice)
-			ret = append(ret, &d)
+			ret = append(ret, d)
 		case ACPI:
 			d := ParseACPIDevicePath(f, &efidevice)
-			ret = append(ret, &d)
+			ret = append(ret, d)
 		case MediaDevicePath:
 			d := ParseMediaDevicePath(f, &efidevice)
-			ret = append(ret, &d)
+			ret = append(ret, d)
 		case MessagingDevicePath:
 			d := ParseMessagingDevicePath(f, &efidevice)
-			ret = append(ret, &d)
+			ret = append(ret, d)
 		case EndOfHardwareDevicePath:
-			log.Printf("Reached end of HardwareDevicePath: %+v\n", efidevice)
+			// log.Printf("Reached end of HardwareDevicePath: %+v\n", efidevice)
 			goto end
 		default:
-			log.Printf("Not implemented EFIDevicePath type: %+v\n", efidevice)
+			// log.Printf("Not implemented EFIDevicePath type: %+v\n", efidevice)
 			goto end
 		}
 	}

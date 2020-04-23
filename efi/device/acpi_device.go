@@ -24,7 +24,7 @@ type ExpandedACPIDevicePath struct {
 	EFIDevicePath
 }
 
-func ParseACPIDevicePath(f *bytes.Reader, efi *EFIDevicePath) EFILoadOptions {
+func ParseACPIDevicePath(f *bytes.Reader, efi *EFIDevicePath) EFIDevicePaths {
 	switch efi.SubType {
 	case ACPIDevice:
 		a := ACPIDevicePath{EFIDevicePath: *efi}

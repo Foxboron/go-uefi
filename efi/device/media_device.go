@@ -40,7 +40,7 @@ type FirmwareFielMediaDevicePath struct {
 	FirmwareFileName [16]byte
 }
 
-func ParseMediaDevicePath(f *bytes.Reader, efi *EFIDevicePath) EFILoadOptions {
+func ParseMediaDevicePath(f *bytes.Reader, efi *EFIDevicePath) EFIDevicePaths {
 	switch efi.SubType {
 	case HardDriveDevicePath:
 		m := HardDriveMediaDevicePath{EFIDevicePath: *efi}

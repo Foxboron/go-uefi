@@ -33,7 +33,7 @@ type VendorMessagingDevicePath struct {
 	Guid [16]byte
 }
 
-func ParseMessagingDevicePath(f *bytes.Reader, efi *EFIDevicePath) EFILoadOptions {
+func ParseMessagingDevicePath(f *bytes.Reader, efi *EFIDevicePath) EFIDevicePaths {
 	switch efi.SubType {
 	case MessagingUSB:
 		u := USBMessagingDevicePath{EFIDevicePath: *efi}
