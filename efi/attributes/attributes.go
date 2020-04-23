@@ -26,13 +26,9 @@ type EfiVariable struct {
 	Data       []byte
 }
 
-func ReadEfivars(filename string) (*EfiVariable, error) {
+func ParseEfivars(f *os.File) (*EfiVariable, error) {
 	var variable EfiVariable
-	f, err := os.Open(path.Join(Efivars, fmt.Sprintf("%s-%s", filename, GUID)))
-	if err != nil {
-		return &EfiVariable{}, nil
-	}
-	if err = binary.Read(f, binary.LittleEndian, &variable.Attributes); err != nil {
+	if err := binary.Read(f, binary.LittleEndian, &variable.Attributes); err != nil {
 		return &EfiVariable{}, nil
 	}
 	stat, err := f.Stat()
@@ -45,4 +41,21 @@ func ReadEfivars(filename string) (*EfiVariable, error) {
 	}
 	variable.Data = buf
 	return &variable, nil
+}
+
+func ReadEfivars(filename string) (*EfiVariable, error) {
+	f, err := os.Open(path.Join(Efivars, fmt.Sprintf("%s-%s", filename, GUID)))
+	if err != nil {
+		return &EfiVariable{}, nil
+	}
+	return ParseEfivars(f)
+}
+
+// For a full path instead of the inferred efivars path
+func ReadEfivarsFile(filename string) (*EfiVariable, error) {
+	f, err := os.Open(filename)
+	if err != nil {
+		return &EfiVariable{}, err
+	}
+	return ParseEfivars(f)
 }
