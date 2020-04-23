@@ -22,17 +22,38 @@ const (
 
 type HardDriveMediaDevicePath struct {
 	EFIDevicePath
-	PartitionNumber    [4]byte
+	PartitionNumber    uint32
 	PartitionStart     [8]byte
 	PartitionSize      [8]byte
 	PartitionSignature [16]byte
-	PartitionFormat    [1]byte
-	SignatureType      [1]byte
+	PartitionFormat    uint8
+	SignatureType      uint8
+}
+
+func (h HardDriveMediaDevicePath) Format() string {
+	format := []string{"MBR", "GPT"}
+	if h.PartitionNumber == 0 {
+		return fmt.Sprintf("HD(%d,%s,%x)",
+			h.PartitionNumber,
+			format[h.PartitionFormat-1],
+			h.PartitionSignature)
+	}
+	binary.LittleEndian.Uint64(h.PartitionStart[:])
+	return fmt.Sprintf("HD(%d,%s,%x,0x%x,0x%x)",
+		h.PartitionNumber,
+		format[h.PartitionFormat-1],
+		h.PartitionSignature,
+		binary.LittleEndian.Uint64(h.PartitionStart[:]),
+		binary.LittleEndian.Uint64(h.PartitionSize[:]))
 }
 
 type FileTypeMediaDevicePath struct {
 	EFIDevicePath
 	PathName []byte
+}
+
+func (f FileTypeMediaDevicePath) Format() string {
+	return fmt.Sprintf("File(%s)", f.PathName)
 }
 
 type FirmwareFielMediaDevicePath struct {
