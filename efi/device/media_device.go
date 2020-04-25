@@ -3,6 +3,7 @@ package device
 import (
 	"bytes"
 	"encoding/binary"
+	"fmt"
 	"log"
 
 	"github.com/foxboron/goefi/efi/util"
@@ -38,11 +39,10 @@ func (h HardDriveMediaDevicePath) Format() string {
 			format[h.PartitionFormat-1],
 			h.PartitionSignature)
 	}
-	binary.LittleEndian.Uint64(h.PartitionStart[:])
-	return fmt.Sprintf("HD(%d,%s,%x,0x%x,0x%x)",
+	return fmt.Sprintf("HD(%d,%s,%s,0x%x,0x%x)",
 		h.PartitionNumber,
 		format[h.PartitionFormat-1],
-		h.PartitionSignature,
+		util.BytesToGUID(h.PartitionSignature).Format(),
 		binary.LittleEndian.Uint64(h.PartitionStart[:]),
 		binary.LittleEndian.Uint64(h.PartitionSize[:]))
 }
@@ -75,7 +75,7 @@ func ParseMediaDevicePath(f *bytes.Reader, efi *EFIDevicePath) EFIDevicePaths {
 		if err := binary.Read(f, binary.LittleEndian, &m.PartitionSize); err != nil {
 			log.Fatal(err)
 		}
-		if err := binary.Read(f, binary.LittleEndian, &m.PartitionSignature); err != nil {
+		if err := binary.Read(f, binary.BigEndian, &m.PartitionSignature); err != nil {
 			log.Fatal(err)
 		}
 		if err := binary.Read(f, binary.LittleEndian, &m.PartitionFormat); err != nil {
