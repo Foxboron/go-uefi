@@ -35,9 +35,6 @@ func (e *EFIGUID) Format() string {
 }
 
 func BytesToGUID(s []byte) *EFIGUID {
-	if len(s) < 16 {
-		log.Fatal("BytesToGUID: Needs to be a 16 bytes buffer")
-	}
 	var efi EFIGUID
 	f := bytes.NewReader(s[:])
 	if err := binary.Read(f, binary.BigEndian, &efi); err != nil {
