@@ -5,6 +5,7 @@ import (
 	"encoding/binary"
 	"log"
 
+	"github.com/foxboron/goefi/efi/attributes"
 	"github.com/foxboron/goefi/efi/util"
 )
 
@@ -115,4 +116,70 @@ func ReadSignatureList(f *bytes.Reader) *SignatureList {
 	s.Signatures = sigData
 	return &s
 }
+
+// Section 32.2.4 Code Defintiions
+// Page. 1707
+// WIN_CERTIFICATE_UEFI_GUID
+
+// According to page 1705
+// UEFI Spec February 2020
+var WIN_CERTIFICATE_REVISION = 0x0200
+
+type WINCertType uint16
+
+// Page 1705
+// 0x0EF0 to 0x0EFF is the reserved range
+var (
+	WIN_CERT_TYPE_PKCS_SIGNED_DATA WINCertType = 0x0002
+	WIN_CERT_TYPE_EFI_PKCS115      WINCertType = 0x0EF0
+	WIN_CERT_TYPE_EFI_GUID         WINCertType = 0x0EF1
+)
+
+type WINCertificate struct {
+	Length          uint32
+	Revision        uint16
+	CertificateType WINCertType
+}
+
+var (
+	EFI_CERT_TYPE_RSA2048_SHA256_GUID = util.EFIGUID{0xa7717414, 0xc616, 0x4977, [8]uint8{0x94, 0x20, 0x84, 0x47, 0x12, 0xa7, 0x35, 0xbf}}
+	EFI_CERT_TYPE_PKCS7_GUID          = util.EFIGUID{0x4aafd29d, 0x68df, 0x49ee, [8]uint8{0x8a, 0xa9, 0x34, 0x7d, 0x37, 0x56, 0x65, 0xa7}}
+)
+
+type WinCertificateUEFIGUID struct {
+}
+
+// Page. 238
+// Only used when EFI_VARIABLE_ENHANCED_AUTHENTICATED_ACCESS is set
+type EFIVariableAuthentication3 struct {
+	Version      uint8
+	Type         uint8
+	MetadataSize uint32
+	Flags        uint32
+}
+
+// Page. 238
+// Used when EFI_VARIABLE_TIME_BASED_AUTHENTICATED_WRITE_ACCESS is set.
+type EFIVariableAuthentication2 struct {
+	Time attributes.EFITime
+	// AuthInfo util.EFIGUID // WIN_CERTIFICATE_UEFI_GUID
+}
+
+func ReadEFIVariableAuthencation2(f *bytes.Reader) *EFIVariableAuthentication2 {
+	var efi EFIVariableAuthentication2
+	if err := binary.Read(f, binary.LittleEndian, &efi); err != nil {
+		log.Fatal(err)
+	}
+	var cert WINCertificate
+	if err := binary.Read(f, binary.LittleEndian, &cert); err != nil {
+		log.Fatal(err)
+	}
+	return &efi
+}
+
+// Page. 237
+// Deprecated. But defined because #reasons
+type EFIVariableAuthentication struct {
+	MonotonicCount uint64
+	AuthInfo       util.EFIGUID // WIN_CERTIFICATE_UEFI_GUID
 }
