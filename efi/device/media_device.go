@@ -42,7 +42,7 @@ func (h HardDriveMediaDevicePath) Format() string {
 	return fmt.Sprintf("HD(%d,%s,%s,0x%x,0x%x)",
 		h.PartitionNumber,
 		format[h.PartitionFormat-1],
-		util.BytesToGUID(h.PartitionSignature).Format(),
+		util.BytesToGUID(h.PartitionSignature[:]).Format(),
 		binary.LittleEndian.Uint64(h.PartitionStart[:]),
 		binary.LittleEndian.Uint64(h.PartitionSize[:]))
 }
