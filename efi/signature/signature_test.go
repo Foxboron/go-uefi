@@ -2,6 +2,7 @@ package signature
 
 import (
 	"bytes"
+	"fmt"
 	"io/ioutil"
 	"log"
 	"path/filepath"
@@ -61,6 +62,27 @@ func TestParseSignatureListFile(t *testing.T) {
 				_, err := pkcs7.NewSignedData(d.Data)
 				if err != nil {
 					log.Fatal(err)
+				}
+			}
+		}
+	}
+}
+
+func TestParseSignatureListHashFile(t *testing.T) {
+	dir := "../../tests/data/signatures/siglistchecksum"
+	files, err := ioutil.ReadDir(dir)
+	if err != nil {
+		log.Fatal(err)
+	}
+	for _, file := range files {
+		path := filepath.Join(dir, file.Name())
+		b, _ := ioutil.ReadFile(path)
+		f := bytes.NewReader(b)
+		c := ReadSignatureList(f)
+		if util.CmpEFIGUID(c.SignatureType, CERT_SHA256_GUID) {
+			for _, d := range c.Signatures {
+				if fmt.Sprintf("%x", d.Data) != "4be2e8d5ef8113c3b9218f05f8aed1df8a6b0e24c706360d39f74a7423f00e32" {
+					log.Fatal("Not correct checksum")
 				}
 			}
 		}

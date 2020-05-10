@@ -164,6 +164,21 @@ func ReadSignatureList(f *bytes.Reader) *SignatureList {
 			}
 			sigData = append(sigData, *ReadSignatureData(f, s.Size))
 		}
+	case "SHA256":
+		if s.HeaderSize != 0 {
+			log.Fatalf("Unexpected HeaderSize for SHA256. Should be 0!")
+		}
+		if s.Size != 48 {
+			log.Fatalf("Unexpected signature size for SHA256. Should be 16+32!")
+		}
+		// Null out this field I guess
+		s.SignatureHeader = []uint8{}
+		for {
+			if f.Len() == 0 {
+				break
+			}
+			sigData = append(sigData, *ReadSignatureData(f, s.Size))
+		}
 	default:
 		log.Fatalf("Not implemented: %s", sig)
 	}
