@@ -5,7 +5,6 @@ import (
 	"encoding/binary"
 	"log"
 
-	"github.com/foxboron/goefi/efi/attributes"
 	"github.com/foxboron/goefi/efi/util"
 )
 
@@ -45,6 +44,21 @@ var ValidEFISignatureSchemes = map[util.EFIGUID]string{
 	CERT_X509_SHA256_GUID:    "X509 SHA256",
 }
 
+type CertType string
+
+const (
+	CERT_SHA256         CertType = "SHA256"
+	CERT_RSA2048                 = "RSA2048"
+	CERT_RSA2048_SHA256          = "RSA2048 SHA256"
+	CERT_SHA1                    = "SHA1"
+	CERT_RSA2048_SHA1            = "RSA2048 SHA1"
+	CERT_X509                    = "X509"
+	CERT_SHA224                  = "SHA224"
+	CERT_SHA384                  = "SHA238"
+	CERT_SHA512                  = "SHA512"
+	CERT_X509_SHA256             = "X509 SHA256"
+)
+
 // Section 3.3 - Globally Defined Variables
 // Array of GUIDs representing the type of signatures supported by
 // the platform firmware. Should be treated as read-only
@@ -76,6 +90,15 @@ func ReadSignatureData(f *bytes.Reader, size uint32) *SignatureData {
 	return &s
 }
 
+func WriteSignatureData(b *bytes.Buffer, s SignatureData) {
+	for _, v := range []interface{}{s.Owner, s.Data} {
+		err := binary.Write(b, binary.LittleEndian, v)
+		if err != nil {
+			log.Fatalf("Couldn't write signature data: %s", err)
+		}
+	}
+}
+
 // Section 32.4.1 - Signature Database
 // Page 1713
 type SignatureList struct {
@@ -84,7 +107,38 @@ type SignatureList struct {
 	HeaderSize      uint32
 	Size            uint32
 	SignatureHeader []uint8
-	Signatures      []*SignatureData
+	Signatures      []SignatureData
+}
+
+func NewSignatureList(data []byte, owner util.EFIGUID, certtype CertType) *SignatureList {
+	sl := SignatureList{}
+	switch certtype {
+	case CERT_X509:
+		// TODO: We should probably accept a slice...
+		sl.SignatureType = CERT_X509_GUID
+		sl.HeaderSize = 0
+		sl.SignatureHeader = []uint8{}
+		sl.Size = uint32(len(data)) + 16
+		sd := []SignatureData{SignatureData{Owner: owner, Data: data}}
+		sl.Signatures = sd
+		// SignatureSize + sizeof(SignatureType) + sizeof(uint32)*4
+		sl.ListSize = sl.Size + 16 + 4 + 4 + 4
+	default:
+		log.Fatalf("Unsupported certificate format")
+	}
+	return &sl
+}
+
+func WriteSignatureList(b *bytes.Buffer, s SignatureList) {
+	for _, v := range []interface{}{s.SignatureType, s.ListSize, s.HeaderSize, s.Size, s.SignatureHeader} {
+		err := binary.Write(b, binary.LittleEndian, v)
+		if err != nil {
+			log.Fatalf("Couldn't write signature list: %s", err)
+		}
+	}
+	for _, l := range s.Signatures {
+		WriteSignatureData(b, l)
+	}
 }
 
 func ReadSignatureList(f *bytes.Reader) *SignatureList {
@@ -96,7 +150,7 @@ func ReadSignatureList(f *bytes.Reader) *SignatureList {
 	}
 	sig, _ := ValidEFISignatureSchemes[s.SignatureType]
 
-	var sigData []*SignatureData
+	var sigData []SignatureData
 	switch sig {
 	case "X509":
 		if s.HeaderSize != 0 {
@@ -108,7 +162,7 @@ func ReadSignatureList(f *bytes.Reader) *SignatureList {
 			if f.Len() == 0 {
 				break
 			}
-			sigData = append(sigData, ReadSignatureData(f, s.Size))
+			sigData = append(sigData, *ReadSignatureData(f, s.Size))
 		}
 	default:
 		log.Fatalf("Not implemented: %s", sig)

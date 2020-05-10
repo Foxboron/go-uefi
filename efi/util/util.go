@@ -3,8 +3,10 @@ package util
 import (
 	"bytes"
 	"encoding/binary"
+	"encoding/hex"
 	"fmt"
 	"log"
+	"strings"
 )
 
 func ReadNullString(f *bytes.Reader) []byte {
@@ -34,6 +36,21 @@ func (e *EFIGUID) Format() string {
 	return fmt.Sprintf("%x-%x-%x-%x-%x", e.Data1, e.Data2, e.Data3, e.Data4[:2], e.Data4[2:])
 }
 
+func CmpEFIGUID(cmp1 EFIGUID, cmp2 EFIGUID) bool {
+	return cmp1.Data1 == cmp2.Data1 &&
+		cmp1.Data2 == cmp2.Data2 &&
+		cmp1.Data3 == cmp2.Data3 &&
+		cmp1.Data4 == cmp2.Data4
+}
+
+func StringToGUID(s string) *EFIGUID {
+	decoded, err := hex.DecodeString(strings.ReplaceAll(s, "-", ""))
+	if err != nil {
+		log.Fatal(err)
+	}
+	return BytesToGUID(decoded)
+}
+
 func BytesToGUID(s []byte) *EFIGUID {
 	var efi EFIGUID
 	f := bytes.NewReader(s[:])
@@ -52,4 +69,13 @@ func GUIDToBytes(g *EFIGUID) []byte {
 		}
 	}
 	return b.Bytes()
+}
+
+func WriteGUID(b *bytes.Buffer, g *EFIGUID) {
+	for _, v := range []interface{}{g.Data1, g.Data2, g.Data3, g.Data4} {
+		err := binary.Write(b, binary.BigEndian, v)
+		if err != nil {
+			log.Fatal(err)
+		}
+	}
 }

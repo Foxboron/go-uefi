@@ -8,9 +8,11 @@ import (
 	"testing"
 
 	"github.com/foxboron/goefi/efi/attributes"
+	"github.com/foxboron/goefi/efi/util"
+	"go.mozilla.org/pkcs7"
 )
 
-func TestParseSignatureList(t *testing.T) {
+func TestParseSignatureListVars(t *testing.T) {
 	dir := "../../tests/data/signatures/efivars"
 	files, err := ioutil.ReadDir(dir)
 	if err != nil {
@@ -29,7 +31,39 @@ func TestParseSignatureList(t *testing.T) {
 		}
 
 		f := bytes.NewReader(s.Data)
-		ReadSignatureList(f)
+		c := ReadSignatureList(f)
+		if util.CmpEFIGUID(c.SignatureType, CERT_X509_GUID) {
+			// Run over and ensure we are getting the correct type
+			for _, d := range c.Signatures {
+				_, err := pkcs7.NewSignedData(d.Data)
+				if err != nil {
+					log.Fatal(err)
+				}
+			}
+		}
+	}
+}
+
+func TestParseSignatureListFile(t *testing.T) {
+	dir := "../../tests/data/signatures/siglist"
+	files, err := ioutil.ReadDir(dir)
+	if err != nil {
+		log.Fatal(err)
+	}
+	for _, file := range files {
+		path := filepath.Join(dir, file.Name())
+		b, _ := ioutil.ReadFile(path)
+		f := bytes.NewReader(b)
+		c := ReadSignatureList(f)
+		if util.CmpEFIGUID(c.SignatureType, CERT_X509_GUID) {
+			// Run over and ensure we are getting the correct type
+			for _, d := range c.Signatures {
+				_, err := pkcs7.NewSignedData(d.Data)
+				if err != nil {
+					log.Fatal(err)
+				}
+			}
+		}
 	}
 }
 
