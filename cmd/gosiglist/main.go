@@ -25,11 +25,14 @@ func main() {
 	input := os.Args[1]
 	output := os.Args[2]
 	guid := util.StringToGUID(*owner)
-	b, _ := ioutil.ReadFile(input)
+	b, err := ioutil.ReadFile(input)
+	if err != nil {
+		log.Fatal(err)
+	}
 	c := signature.NewSignatureList(b, *guid, signature.CERT_X509)
 	buf := new(bytes.Buffer)
 	signature.WriteSignatureList(buf, *c)
-	err := ioutil.WriteFile(output, buf.Bytes(), 0644)
+	err = ioutil.WriteFile(output, buf.Bytes(), 0644)
 	if err != nil {
 		log.Fatal(err)
 	}
