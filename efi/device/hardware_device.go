@@ -28,11 +28,10 @@ func ParseHardwareDevicePath(f *bytes.Reader, efi *EFIDevicePath) EFIDevicePaths
 	switch efi.SubType {
 	case HardwarePCI:
 		p := PCIDevicePath{EFIDevicePath: *efi}
-		if err := binary.Read(f, binary.LittleEndian, &p.Function); err != nil {
-			log.Fatal(err)
-		}
-		if err := binary.Read(f, binary.LittleEndian, &p.Device); err != nil {
-			log.Fatal(err)
+		for _, d := range []interface{}{&p.Function, &p.Device} {
+			if err := binary.Read(f, binary.LittleEndian, d); err != nil {
+				log.Fatalf("Couldn't Parse PCI Device Path: %s", err)
+			}
 		}
 		return p
 	default:

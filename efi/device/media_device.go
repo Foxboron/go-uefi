@@ -65,24 +65,17 @@ func ParseMediaDevicePath(f *bytes.Reader, efi *EFIDevicePath) EFIDevicePaths {
 	switch efi.SubType {
 	case HardDriveDevicePath:
 		m := HardDriveMediaDevicePath{EFIDevicePath: *efi}
-		// var m HardDriveMediaDevicePath
-		if err := binary.Read(f, binary.LittleEndian, &m.PartitionNumber); err != nil {
-			log.Fatal(err)
-		}
-		if err := binary.Read(f, binary.LittleEndian, &m.PartitionStart); err != nil {
-			log.Fatal(err)
-		}
-		if err := binary.Read(f, binary.LittleEndian, &m.PartitionSize); err != nil {
-			log.Fatal(err)
-		}
-		if err := binary.Read(f, binary.BigEndian, &m.PartitionSignature); err != nil {
-			log.Fatal(err)
-		}
-		if err := binary.Read(f, binary.LittleEndian, &m.PartitionFormat); err != nil {
-			log.Fatal(err)
-		}
-		if err := binary.Read(f, binary.LittleEndian, &m.SignatureType); err != nil {
-			log.Fatal(err)
+		for _, b := range []interface{}{
+			&m.PartitionNumber,
+			&m.PartitionStart,
+			&m.PartitionSize,
+			&m.PartitionSignature,
+			&m.PartitionFormat,
+			&m.SignatureType,
+		} {
+			if err := binary.Read(f, binary.LittleEndian, b); err != nil {
+				log.Fatalf("Couldn't parse Harddrive Device Path: %s", err)
+			}
 		}
 		return m
 	case FilePathDevicePath:
@@ -92,7 +85,7 @@ func ParseMediaDevicePath(f *bytes.Reader, efi *EFIDevicePath) EFIDevicePaths {
 	case PIWGFirmwareDevicePath:
 		file := FirmwareFielMediaDevicePath{EFIDevicePath: *efi}
 		if err := binary.Read(f, binary.LittleEndian, &file.FirmwareFileName); err != nil {
-			log.Fatal(err)
+			log.Fatalf("Couldn't parse PIWG Firmware Device Path: %s", err)
 		}
 		return file
 	default:

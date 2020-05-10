@@ -28,11 +28,10 @@ func ParseACPIDevicePath(f *bytes.Reader, efi *EFIDevicePath) EFIDevicePaths {
 	switch efi.SubType {
 	case ACPIDevice:
 		a := ACPIDevicePath{EFIDevicePath: *efi}
-		if err := binary.Read(f, binary.LittleEndian, &a.HID); err != nil {
-			log.Fatal(err)
-		}
-		if err := binary.Read(f, binary.LittleEndian, &a.UID); err != nil {
-			log.Fatal(err)
+		for _, i := range []interface{}{&a.HID, &a.UID} {
+			if err := binary.Read(f, binary.LittleEndian, i); err != nil {
+				log.Fatalf("Can't prase ACPI Device Path: %s", err)
+			}
 		}
 		return a
 	case ExpandedACPIDevice:

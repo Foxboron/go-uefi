@@ -3,7 +3,6 @@ package device
 import (
 	"bytes"
 	"encoding/binary"
-	"fmt"
 	"log"
 
 	"github.com/foxboron/goefi/efi/attributes"
@@ -56,7 +55,7 @@ func ParseDevicePath(f *bytes.Reader) []EFIDevicePaths {
 	for {
 		var efidevice EFIDevicePath
 		if err := binary.Read(f, binary.LittleEndian, &efidevice); err != nil {
-			log.Fatalf("Failed ParseDevicePath binary.Read: %s\n", err)
+			log.Fatalf("Failed to parse EFI Device Path: %s", err)
 		}
 		switch efidevice.Type {
 		case Hardware:
@@ -85,13 +84,11 @@ end:
 
 func ParseEFILoadOption(f *bytes.Reader) *EFILoadOption {
 	var bootentry EFILoadOption
-	if err := binary.Read(f, binary.LittleEndian, &bootentry.Attributes); err != nil {
-		fmt.Println(err)
+	for _, b := range []interface{}{&bootentry.Attributes, &bootentry.FilePathListLength} {
+		if err := binary.Read(f, binary.LittleEndian, b); err != nil {
+			log.Fatalf("Can't parse EFI Load Option: %s", err)
+		}
 	}
-	if err := binary.Read(f, binary.LittleEndian, &bootentry.FilePathListLength); err != nil {
-		fmt.Println(err)
-	}
-
 	bootentry.Description = util.ReadNullString(f)
 	return &bootentry
 }
