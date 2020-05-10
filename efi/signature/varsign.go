@@ -6,7 +6,6 @@ import (
 	"log"
 
 	"github.com/foxboron/goefi/efi/util"
-	"go.mozilla.org/pkcs7"
 )
 
 // Section 32.2.4 Code Defintiions
@@ -109,12 +108,6 @@ func ReadEFIVariableAuthencation2(f *bytes.Reader) *EFIVariableAuthentication2 {
 	if efi.AuthInfo.CertType != WIN_CERT_TYPE_EFI_GUID {
 		log.Fatalf("EFI_VARIABLE_AUTHENTICATION2 accepts only CertType WIN_CERT_TYPE_EFI_GUID. Got: %x", efi.AuthInfo.CertType)
 	}
-	_, err := pkcs7.NewSignedData(efi.AuthInfo.Signature)
-	// cert, err := pkcs7.Parse(efi.AuthInfo.Signature)
-	if err != nil {
-		log.Fatal(err)
-	}
-	// ioutil.WriteFile("test.der", efi.AuthInfo.Signature, 0644)
 	return &efi
 }
 
