@@ -1,12 +1,21 @@
 goefi
 =====
 
-Try be a complete UEFI written in Go. No silly bindings.
+Try be a complete UEFI API written in Go. No silly bindings.
+
+# Goals
+
+* Rewrite `efibootmgr`
+* Rewrite `sbsigntool` and/or `efitools`
+* Provide a sane top-level library
+* Provide low-level plumbing if needed
+* Decent documentation between code and specification
 
 
-Can we reimplement efibootmgr with a sane syntax?
+## Current progress
 
-```
-$ efibootmgr list-entries
-$ efibootmgr add-device
-```
+* Can parse large parts of the Boot**** directives
+* Partial reimplementation of `sbsiglist`
+
+
+
