@@ -1,4 +1,4 @@
-package secureboot
+package signature
 
 import (
 	"bytes"
