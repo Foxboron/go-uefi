@@ -4,9 +4,11 @@ import (
 	"bytes"
 	"encoding/binary"
 	"fmt"
+	"log"
 
 	"github.com/foxboron/goefi/efi/attributes"
 	"github.com/foxboron/goefi/efi/device"
+	"github.com/foxboron/goefi/efi/signature"
 )
 
 func GetBoorOrder() []string {
@@ -31,4 +33,56 @@ func GetSetupMode() []byte {
 	attributes.ReadEfivars("PK")
 	attributes.ReadEfivars("BootOrder")
 	return []byte{}
+}
+
+var ValidAttributes = map[string]attributes.Attributes{
+	"SetupMode": attributes.EFI_VARIABLE_NON_VOLATILE |
+		attributes.EFI_VARIABLE_BOOTSERVICE_ACCESS,
+	"PK": attributes.EFI_VARIABLE_NON_VOLATILE |
+		attributes.EFI_VARIABLE_BOOTSERVICE_ACCESS |
+		attributes.EFI_VARIABLE_RUNTIME_ACCESS |
+		attributes.EFI_VARIABLE_TIME_BASED_AUTHENTICATED_WRITE_ACCESS,
+	"KEK": attributes.EFI_VARIABLE_NON_VOLATILE |
+		attributes.EFI_VARIABLE_BOOTSERVICE_ACCESS |
+		attributes.EFI_VARIABLE_RUNTIME_ACCESS |
+		attributes.EFI_VARIABLE_TIME_BASED_AUTHENTICATED_WRITE_ACCESS,
+}
+
+func GetPK() error {
+	efivar := "PK"
+	s, err := attributes.ReadEfivars(efivar)
+	if err != nil {
+		log.Fatal(err)
+	}
+	if (ValidAttributes[efivar] & s.Attributes) != ValidAttributes[efivar] {
+		return fmt.Errorf("Invalid bitmask")
+	}
+	f := bytes.NewReader(s.Data)
+	signature.ReadSignatureLists(f)
+}
+
+func GetKEK() error {
+	efivar := "KEK"
+	s, err := attributes.ReadEfivars(efivar)
+	if err != nil {
+		log.Fatal(err)
+	}
+	if (ValidAttributes[efivar] & s.Attributes) != ValidAttributes[efivar] {
+		return fmt.Errorf("Invalid bitmask")
+	}
+	f := bytes.NewReader(s.Data)
+	signature.ReadSignatureLists(f)
+}
+
+func Getdb() error {
+	efivar := "db"
+	s, err := attributes.ReadEfivars(efivar)
+	if err != nil {
+		log.Fatal(err)
+	}
+	if (ValidAttributes[efivar] & s.Attributes) != ValidAttributes[efivar] {
+		return fmt.Errorf("Invalid bitmask")
+	}
+	f := bytes.NewReader(s.Data)
+	signature.ReadSignatureLists(f)
 }
