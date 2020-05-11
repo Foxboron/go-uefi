@@ -30,6 +30,29 @@ const (
 
 var EFI_GLOBAL_VARIABLE = util.EFIGUID{0x8BE4DF61, 0x93CA, 0x11d2, [8]uint8{0xAA, 0x0D, 0x00, 0xE0, 0x98, 0x03, 0x2B, 0x8C}}
 
+// Section 32.6 - Code Definition
+// Section 32.6.1 - UEFI Variable GUID & Variable Name
+// page 1728
+
+// Valid Databases
+// db  - authorized signature database
+// dbx - forbidden signature database
+// dbt - authorized timestamp signature database
+// dbr - authorized recovery signature database
+var (
+	EFI_IMAGE_SECURITY_DATABASE_GUID = util.EFIGUID{0xd719b2cb, 0x3d3a, 0x4596, [8]uint8{0xa3, 0xbc, 0xda, 0xd0, 0x0e, 0x67, 0x65, 0x6f}}
+	IMAGE_SECURITY_DATABASE          = "db"
+	IMAGE_SECURITY_DATABASE1         = "dbx"
+	IMAGE_SECURITY_DATABASE2         = "dbt"
+	IMAGE_SECURITY_DATABASE3         = "dbr"
+	ImageSecurityDatabases           = map[string]bool{
+		IMAGE_SECURITY_DATABASE:  true,
+		IMAGE_SECURITY_DATABASE1: true,
+		IMAGE_SECURITY_DATABASE2: true,
+		IMAGE_SECURITY_DATABASE3: true,
+	}
+)
+
 var Efivars = "/sys/firmware/efi/efivars"
 
 type EfiVariable struct {
@@ -55,9 +78,13 @@ func ParseEfivars(f *os.File) (*EfiVariable, error) {
 }
 
 func ReadEfivars(filename string) (*EfiVariable, error) {
-	f, err := os.Open(path.Join(Efivars, fmt.Sprintf("%s-%s", filename, EFI_GLOBAL_VARIABLE.Format())))
+	guid := EFI_GLOBAL_VARIABLE
+	if ok := ImageSecurityDatabases[filename]; ok {
+		guid = EFI_IMAGE_SECURITY_DATABASE_GUID
+	}
+	f, err := os.Open(path.Join(Efivars, fmt.Sprintf("%s-%s", filename, guid.Format())))
 	if err != nil {
-		return &EfiVariable{}, nil
+		return &EfiVariable{}, err
 	}
 	return ParseEfivars(f)
 }
