@@ -29,12 +29,14 @@ var (
 	CERT_X509_SHA256_GUID = util.EFIGUID{0x3bd2a492, 0x96c0, 0x4079, [8]uint8{0xb4, 0x20, 0xfc, 0xf9, 0x8e, 0xf1, 0x03, 0xed}}
 )
 
+type CertType string
+
 // Quick access list
 // Maybe a map[string]EFIGUID?
-var ValidEFISignatureSchemes = map[util.EFIGUID]string{
+var ValidEFISignatureSchemes = map[util.EFIGUID]CertType{
 	CERT_SHA256_GUID:         "SHA256",
 	CERT_RSA2048_GUID:        "RSA2048",
-	CERT_RSA2048_SHA256_GUID: "RSA2048, SHA256",
+	CERT_RSA2048_SHA256_GUID: "RSA2048 SHA256",
 	CERT_SHA1_GUID:           "SHA1",
 	CERT_RSA2048_SHA1_GUID:   "RSA2048 SHA1",
 	CERT_X509_GUID:           "X509",
@@ -43,8 +45,6 @@ var ValidEFISignatureSchemes = map[util.EFIGUID]string{
 	CERT_SHA512_GUID:         "SHA512",
 	CERT_X509_SHA256_GUID:    "X509 SHA256",
 }
-
-type CertType string
 
 const (
 	CERT_SHA256         CertType = "SHA256"
@@ -80,11 +80,11 @@ type SignatureData struct {
 func ReadSignatureData(f *bytes.Reader, size uint32) *SignatureData {
 	s := SignatureData{}
 	if err := binary.Read(f, binary.LittleEndian, &s.Owner); err != nil {
-		log.Fatal(err)
+		log.Fatalf("Couldn't read Signature Data: %s", err)
 	}
 	data := make([]uint8, size-16) // Subtract the size of Owner
 	if err := binary.Read(f, binary.LittleEndian, &data); err != nil {
-		log.Fatal(err)
+		log.Fatalf("Couldn't read Signature Data: %s", err)
 	}
 	s.Data = data[:]
 	return &s
@@ -103,12 +103,15 @@ func WriteSignatureData(b *bytes.Buffer, s SignatureData) {
 // Page 1713
 type SignatureList struct {
 	SignatureType   util.EFIGUID
-	ListSize        uint32
-	HeaderSize      uint32
-	Size            uint32
-	SignatureHeader []uint8
-	Signatures      []SignatureData
+	ListSize        uint32          // Total size of the signature list, including this header
+	HeaderSize      uint32          // Size of SignatureHead
+	Size            uint32          // Size of each signature. Atleast the size of EFI_SIGNATURE_DATA
+	SignatureHeader []uint8         // SignatureType defines the content of this header
+	Signatures      []SignatureData // SignatureData List
 }
+
+// SignatureSize + sizeof(SignatureType) + sizeof(uint32)*4
+const SizeofSignatureList uint32 = 16 + 4 + 4 + 4
 
 func NewSignatureList(data []byte, owner util.EFIGUID, certtype CertType) *SignatureList {
 	sl := SignatureList{}
@@ -122,7 +125,7 @@ func NewSignatureList(data []byte, owner util.EFIGUID, certtype CertType) *Signa
 		sd := []SignatureData{SignatureData{Owner: owner, Data: data}}
 		sl.Signatures = sd
 		// SignatureSize + sizeof(SignatureType) + sizeof(uint32)*4
-		sl.ListSize = sl.Size + 16 + 4 + 4 + 4
+		sl.ListSize = sl.Size + SizeofSignatureList
 	default:
 		log.Fatalf("Unsupported certificate format")
 	}
@@ -145,25 +148,34 @@ func ReadSignatureList(f *bytes.Reader) *SignatureList {
 	s := SignatureList{}
 	for _, i := range []interface{}{&s.SignatureType, &s.ListSize, &s.HeaderSize, &s.Size} {
 		if err := binary.Read(f, binary.LittleEndian, i); err != nil {
-			log.Fatal(err)
+			log.Fatalf("Couldn't read signature list: %s", err)
 		}
 	}
-	sig, _ := ValidEFISignatureSchemes[s.SignatureType]
 
 	var sigData []SignatureData
+
+	// The list size minus the size of the SignatureList struct
+	// lets us figure out how much signature data we should read
+	totalSize := s.ListSize - SizeofSignatureList
+
+	sig, _ := ValidEFISignatureSchemes[s.SignatureType]
+	// Anonymous function because I really can't figure out a better name for it
+	parseList := func(data []SignatureData, size uint32) []SignatureData {
+		for {
+			if totalSize == 0 {
+				break
+			}
+			data = append(data, *ReadSignatureData(f, size))
+			totalSize -= s.Size
+		}
+		return data
+	}
 	switch sig {
 	case "X509":
 		if s.HeaderSize != 0 {
 			log.Fatalf("Unexpected HeaderSize for x509 cert. Should be 0!")
 		}
-		// Null out this field I guess
-		s.SignatureHeader = []uint8{}
-		for {
-			if f.Len() == 0 {
-				break
-			}
-			sigData = append(sigData, *ReadSignatureData(f, s.Size))
-		}
+		sigData = parseList(sigData, s.Size)
 	case "SHA256":
 		if s.HeaderSize != 0 {
 			log.Fatalf("Unexpected HeaderSize for SHA256. Should be 0!")
@@ -171,17 +183,23 @@ func ReadSignatureList(f *bytes.Reader) *SignatureList {
 		if s.Size != 48 {
 			log.Fatalf("Unexpected signature size for SHA256. Should be 16+32!")
 		}
-		// Null out this field I guess
-		s.SignatureHeader = []uint8{}
-		for {
-			if f.Len() == 0 {
-				break
-			}
-			sigData = append(sigData, *ReadSignatureData(f, s.Size))
-		}
+		sigData = parseList(sigData, s.Size)
 	default:
-		log.Fatalf("Not implemented: %s", sig)
+		log.Fatalf("Not implemented signature list certificate: %s", sig)
 	}
 	s.Signatures = sigData
 	return &s
+}
+
+// Reads several signature lists from a bytes Reader
+// TODO: Needs a better name
+func ReadSignatureLists(f *bytes.Reader) []*SignatureList {
+	siglist := []*SignatureList{}
+	for {
+		if f.Len() == 0 {
+			break
+		}
+		siglist = append(siglist, ReadSignatureList(f))
+	}
+	return siglist
 }
