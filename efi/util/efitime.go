@@ -1,6 +1,9 @@
 package util
 
-import "fmt"
+import (
+	"fmt"
+	"time"
+)
 
 // Section 8.2 - Time Services
 
@@ -25,11 +28,23 @@ type EFITime struct {
 }
 
 func (e *EFITime) Format() string {
-	return fmt.Sprintf("%d", e.Year)
+	return fmt.Sprintf("%d-%d-%d %d:%d:%d:%d", e.Year, e.Month, e.Day, e.Hour, e.Minute, e.Second, e.Nanosecond)
 }
 
 type EFITImeCapabilitie struct {
 	Resolution uint32
 	Accuracy   uint32
 	SetsToZero bool
+}
+
+func NewEFITime() *EFITime {
+	t := time.Now()
+	return &EFITime{
+		Year:   uint16(t.Year()),
+		Month:  uint8(t.Month()),
+		Day:    uint8(t.Day()),
+		Hour:   uint8(t.Hour()),
+		Minute: uint8(t.Minute()),
+		Second: uint8(t.Second()),
+	}
 }
