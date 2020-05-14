@@ -22,10 +22,12 @@ type WINCertType uint16
 // 0x0EF0 to 0x0EFF is the reserved range
 var (
 	WIN_CERT_TYPE_PKCS_SIGNED_DATA WINCertType = 0x0002
-	WIN_CERT_TYPE_EFI_PKCS115      WINCertType = 0x0EF0
+	WIN_CERT_TYPE_EFI_PKCS1_15     WINCertType = 0x0EF0
 	WIN_CERT_TYPE_EFI_GUID         WINCertType = 0x0EF1
 )
 
+// PE/COFF structure for signing
+// Page 1705
 type WINCertificate struct {
 	Length    uint32
 	Revision  uint16
@@ -71,6 +73,7 @@ var (
 )
 
 // Should implement an interface
+// Page 1707
 type WinCertificateUEFIGUID struct {
 	Header   WINCertificate
 	CertType util.EFIGUID // One of the EFI_CERT types
