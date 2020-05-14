@@ -59,6 +59,7 @@ func GetPK() error {
 	}
 	f := bytes.NewReader(s.Data)
 	signature.ReadSignatureLists(f)
+	return nil
 }
 
 func GetKEK() error {
@@ -72,6 +73,7 @@ func GetKEK() error {
 	}
 	f := bytes.NewReader(s.Data)
 	signature.ReadSignatureLists(f)
+	return nil
 }
 
 func Getdb() error {
@@ -85,4 +87,5 @@ func Getdb() error {
 	}
 	f := bytes.NewReader(s.Data)
 	signature.ReadSignatureLists(f)
+	return nil
 }
