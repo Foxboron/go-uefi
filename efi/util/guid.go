@@ -61,8 +61,7 @@ func BytesToGUID(s []byte) *EFIGUID {
 func GUIDToBytes(g *EFIGUID) []byte {
 	b := new(bytes.Buffer)
 	for _, v := range []interface{}{g.Data1, g.Data2, g.Data3, g.Data4} {
-		err := binary.Write(b, binary.BigEndian, v)
-		if err != nil {
+		if err := binary.Write(b, binary.BigEndian, v); err != nil {
 			log.Fatal(err)
 		}
 	}
@@ -72,8 +71,7 @@ func GUIDToBytes(g *EFIGUID) []byte {
 // Write an EFIGUID to a bytes.Buffer
 func WriteGUID(b *bytes.Buffer, g *EFIGUID) {
 	for _, v := range []interface{}{g.Data1, g.Data2, g.Data3, g.Data4} {
-		err := binary.Write(b, binary.BigEndian, v)
-		if err != nil {
+		if err := binary.Write(b, binary.BigEndian, v); err != nil {
 			log.Fatal(err)
 		}
 	}
