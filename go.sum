@@ -1,2 +1,4 @@
+github.com/foxboron/pkcs7 v0.0.0-20200515164019-e54fb35a79dc h1:lqpAI88EM8M/ya9Btwj3/M3nWULxZPWX5PzvTLoVZpA=
+github.com/foxboron/pkcs7 v0.0.0-20200515164019-e54fb35a79dc/go.mod h1:px0/6X5Ap1wlLCWQ1DmiBULqyLBpoiXpUm0Vce+ufSk=
 go.mozilla.org/pkcs7 v0.0.0-20200128120323-432b2356ecb1 h1:A/5uWzF44DlIgdm/PQFwfMkW0JX+cIcQi/SwLAmZP5M=
 go.mozilla.org/pkcs7 v0.0.0-20200128120323-432b2356ecb1/go.mod h1:SNgMg+EgDFwmvSmLRTNKC5fegJjB7v23qTQ0XLGUNHk=
