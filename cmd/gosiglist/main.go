@@ -15,15 +15,16 @@ import (
 func main() {
 	owner := flag.String("o", "", "GUID of the owner")
 	flag.Parse()
-	if len(os.Args) == 1 {
+	args := flag.Args()
+	if len(args) == 1 {
 		fmt.Println("gosiglist: -o <Owner GUID> [input] [output]")
 	}
-	if len(os.Args) != 3 {
+	if len(args) != 2 {
 		fmt.Println("Missing input and output file")
 		os.Exit(1)
 	}
-	input := os.Args[1]
-	output := os.Args[2]
+	input := args[0]
+	output := args[1]
 	guid := util.StringToGUID(*owner)
 	b, err := ioutil.ReadFile(input)
 	if err != nil {
