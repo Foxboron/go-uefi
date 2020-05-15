@@ -13,6 +13,8 @@ var (
 	EFI_UNSPECIFIED_TIMEZONE uint16 = 0x07FF
 )
 
+const SizeofEFITime = 2 + 6 + 4 + 2 + 2
+
 type EFITime struct {
 	Year       uint16 // 1900 - 9999 AKA Y99K y'all
 	Month      uint8  // 1-12

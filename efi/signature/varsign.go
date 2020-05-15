@@ -29,15 +29,16 @@ var (
 // PE/COFF structure for signing
 // Page 1705
 type WINCertificate struct {
-	Length    uint32
-	Revision  uint16
-	CertType  WINCertType
-	Signature []byte
+	Length      uint32
+	Revision    uint16
+	CertType    WINCertType
+	Certificate []uint8
 }
 
-func ReadWinCertificate(f *bytes.Reader) *WINCertificate {
-	var cert WINCertificate
+const SizeofWINCertificate = 4 + 2 + 2 + 1
 
+func ReadWinCertificate(f *bytes.Reader) WINCertificate {
+	var cert WINCertificate
 	for _, v := range []interface{}{&cert.Length, &cert.Revision, &cert.CertType} {
 		if err := binary.Read(f, binary.LittleEndian, v); err != nil {
 			log.Fatal(err)
@@ -46,25 +47,15 @@ func ReadWinCertificate(f *bytes.Reader) *WINCertificate {
 	if cert.Revision != WIN_CERTIFICATE_REVISION {
 		log.Fatalf("WINCertificate revision should be %x, but is %x. Malformed or invalid", WIN_CERTIFICATE_REVISION, cert.Revision)
 	}
-	switch cert.CertType {
-	case WIN_CERT_TYPE_EFI_GUID:
-		certificateData := ReadWinCertificateUEFIGUID(f)
-		if util.CmpEFIGUID(certificateData.CertType, EFI_CERT_TYPE_PKCS7_GUID) {
-			signatureData := make([]byte, f.Len())
-			if err := binary.Read(f, binary.LittleEndian, signatureData); err != nil {
-				log.Fatal(err)
-			}
-			cert.Signature = signatureData[:]
-			return &cert
+	return cert
+}
+
+func WriteWinCertificate(b *bytes.Buffer, w *WINCertificate) {
+	for _, d := range []interface{}{w.Length, w.Revision, w.CertType, w.Certificate} {
+		if err := binary.Write(b, binary.LittleEndian, d); err != nil {
+			log.Fatal(err)
 		}
-		if util.CmpEFIGUID(certificateData.CertType, EFI_CERT_TYPE_RSA2048_SHA256_GUID) {
-			return &cert
-		}
-		log.Fatalf("Unexpected CertType from WIN_CERT_TYPE_EFI_GUID: %s", certificateData.CertType.Format())
-	default:
-		log.Panicf("Not implemented WINCertificate type %x", cert.CertType)
 	}
-	return &cert
 }
 
 var (
@@ -77,14 +68,33 @@ var (
 type WinCertificateUEFIGUID struct {
 	Header   WINCertificate
 	CertType util.EFIGUID // One of the EFI_CERT types
+	CertData []byte
 }
 
-func ReadWinCertificateUEFIGUID(f *bytes.Reader) *WinCertificateUEFIGUID {
+const SizeofWinCertificateUEFIGUID = SizeofWINCertificate + 16
+
+func ReadWinCertificateUEFIGUID(f *bytes.Reader) WinCertificateUEFIGUID {
 	var cert WinCertificateUEFIGUID
+	cert.Header = ReadWinCertificate(f)
 	if err := binary.Read(f, binary.LittleEndian, &cert.CertType); err != nil {
 		log.Fatal(err)
 	}
-	return &cert
+	rbuf := make([]byte, cert.Header.Length)
+	if err := binary.Read(f, binary.LittleEndian, rbuf); err != nil {
+		log.Fatal(err)
+	}
+	cert.CertData = rbuf[:]
+	return cert
+}
+
+func WriteWinCertificateUEFIGUID(b *bytes.Buffer, w *WinCertificateUEFIGUID) {
+	WriteWinCertificate(b, &w.Header)
+	if err := binary.Write(b, binary.LittleEndian, w.CertType); err != nil {
+		log.Fatal(err)
+	}
+	if err := binary.Write(b, binary.LittleEndian, w.CertData); err != nil {
+		log.Fatal(err)
+	}
 }
 
 // Page. 238
@@ -97,9 +107,26 @@ type EFIVariableAuthentication3 struct {
 }
 
 // Page. 238
+// Only accepts the CertType EFI_CERT_TYPE_PKCS7_GUID
 type EFIVariableAuthentication2 struct {
 	Time     util.EFITime
-	AuthInfo *WINCertificate
+	AuthInfo WinCertificateUEFIGUID
+}
+
+// Returns an EFIVariableAuthencation2 struct
+// no SignedData
+func NewEFIVariableAuthentication2() *EFIVariableAuthentication2 {
+	return &EFIVariableAuthentication2{
+		Time: *util.NewEFITime(),
+		AuthInfo: WinCertificateUEFIGUID{
+			Header: WINCertificate{
+				Length:   SizeofWinCertificateUEFIGUID,
+				Revision: WIN_CERTIFICATE_REVISION,
+				CertType: WIN_CERT_TYPE_EFI_GUID,
+			},
+			CertType: EFI_CERT_TYPE_PKCS7_GUID,
+		},
+	}
 }
 
 func ReadEFIVariableAuthencation2(f *bytes.Reader) *EFIVariableAuthentication2 {
@@ -107,11 +134,18 @@ func ReadEFIVariableAuthencation2(f *bytes.Reader) *EFIVariableAuthentication2 {
 	if err := binary.Read(f, binary.LittleEndian, &efi.Time); err != nil {
 		log.Fatal(err)
 	}
-	efi.AuthInfo = ReadWinCertificate(f)
-	if efi.AuthInfo.CertType != WIN_CERT_TYPE_EFI_GUID {
+	efi.AuthInfo = ReadWinCertificateUEFIGUID(f)
+	if efi.AuthInfo.Header.CertType != WIN_CERT_TYPE_EFI_GUID {
 		log.Fatalf("EFI_VARIABLE_AUTHENTICATION2 accepts only CertType WIN_CERT_TYPE_EFI_GUID. Got: %x", efi.AuthInfo.CertType)
 	}
 	return &efi
+}
+
+func WriteEFIVariableAuthencation2(b *bytes.Buffer, e EFIVariableAuthentication2) {
+	if err := binary.Write(b, binary.LittleEndian, e.Time); err != nil {
+		log.Fatal(err)
+	}
+	WriteWinCertificateUEFIGUID(b, &e.AuthInfo)
 }
 
 // Page. 237
