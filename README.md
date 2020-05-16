@@ -16,6 +16,6 @@ Try be a complete UEFI API written in Go. No silly bindings.
 
 * Can parse large parts of the Boot**** directives
 * Partial reimplementation of `sbsiglist`
-
+* Non-working reimplementation of `sbvarsign`
 
 
