@@ -3,7 +3,6 @@ package signature
 import (
 	"bytes"
 	"crypto/x509"
-	"encoding/binary"
 	"encoding/pem"
 	"io/ioutil"
 	"log"
@@ -27,20 +26,12 @@ func ReadCert(path string) *x509.Certificate {
 	return cert
 }
 
+// Doesn't do anything
 func TestVerifySignature(t *testing.T) {
-	//pathAuth := "../../tests/data/signatures/varsign/PK.auth"
-	pathAuth := "../../empty.db.signed"
-
+	pathAuth := "../../tests/data/signatures/varsign/PK.auth"
 	b, _ := ioutil.ReadFile(pathAuth)
 	f := bytes.NewReader(b)
 	d := ReadEFIVariableAuthencation2(f)
 	buf := new(bytes.Buffer)
 	WriteEFIVariableAuthencation2(buf, *d)
-	readBuf := make([]byte, f.Len())
-	binary.Read(f, binary.LittleEndian, readBuf)
-	buf.Write(readBuf)
-	err := ioutil.WriteFile("../../test-suite.empty.db", buf.Bytes(), 0644)
-	if err != nil {
-		log.Fatal(err)
-	}
 }
