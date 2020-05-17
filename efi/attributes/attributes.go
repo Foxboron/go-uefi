@@ -1,8 +1,10 @@
 package attributes
 
 import (
+	"bytes"
 	"encoding/binary"
 	"fmt"
+	"log"
 	"os"
 	"path"
 
@@ -96,4 +98,31 @@ func ReadEfivarsFile(filename string) (*EfiVariable, error) {
 		return &EfiVariable{}, err
 	}
 	return ParseEfivars(f)
+}
+
+// Write an EFI variable to sysfs
+func WriteEfivars(name string, attrs Attributes, b []byte) error {
+	guid := EFI_GLOBAL_VARIABLE
+	if ok := ImageSecurityDatabases[name]; ok {
+		guid = EFI_IMAGE_SECURITY_DATABASE_GUID
+	}
+	attrs |= EFI_VARIABLE_APPEND_WRITE
+	fil, err := os.OpenFile(path.Join(Efivars, fmt.Sprintf("%s-%s", name, guid.Format())), os.O_WRONLY|os.O_CREATE, 0600)
+	if err != nil {
+		log.Fatal(err)
+	}
+	attrBuf := new(bytes.Buffer)
+	binary.Write(attrBuf, binary.LittleEndian, attrs)
+	buf := append(attrBuf.Bytes(), b...)
+	n, err := fil.Write(buf)
+	if err != nil {
+		log.Fatal(err)
+	}
+	if n != len(buf) {
+		log.Fatal("Did not write the complete buffer")
+	}
+	if err := fil.Close(); err != nil {
+		log.Fatal(err)
+	}
+	return nil
 }
