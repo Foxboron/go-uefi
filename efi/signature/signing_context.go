@@ -53,7 +53,7 @@ func NewSignedEFIVariable(ctx *SigningContext) *EFIVariableAuthentication2 {
 	// Page 246
 
 	// SignedData.digestAlgorithms shall contain the digest algorithm used when
-	// preparing the signature.  Ognly a digest algorithm of SHA-256 is accepted
+	// preparing the signature. Only a digest algorithm of SHA-256 is accepted
 
 	// SignerInfo.digestEncryptionAlgorithm shall be set to the algorithm used to
 	// sign the data. Only a digest encryption algorithm of RSA with PKCS #1 v1.5
