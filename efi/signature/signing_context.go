@@ -56,15 +56,9 @@ func NewSignedEFIVariable(ctx *SigningContext) *EFIVariableAuthentication2 {
 	// preparing the signature.  Ognly a digest algorithm of SHA-256 is accepted
 
 	// SignerInfo.digestEncryptionAlgorithm shall be set to the algorithm used to
-	// sign the data. Only a digest encryption algorithm of rSA with PKCS #1 v1.5
+	// sign the data. Only a digest encryption algorithm of RSA with PKCS #1 v1.5
 	// padding (RSASSA_PKCS1v1_5). is accepted.
 
-	// Apparently we don't get the correct message diest if we set the
-	// DigestAlgorithm to SHA256. However, we still get SHA256 one place and RSA
-	// for message digest another if we do this. So maybe it works. I have no
-	// clue.
-
-	// sd.SetDigestAlgorithm(pkcs7.OIDEncryptionAlgorithmRSA)
 	sd.SetDigestAlgorithm(pkcs7.OIDDigestAlgorithmSHA256)
 	sd.SetEncryptionAlgorithm(pkcs7.OIDEncryptionAlgorithmRSA)
 

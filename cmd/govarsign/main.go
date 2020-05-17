@@ -54,27 +54,6 @@ func ReadCert(path string) *x509.Certificate {
 	return cert
 }
 
-func SignSignatureList(cert *x509.Certificate, key *rsa.PrivateKey, esl []*signature.SignatureList) []byte {
-	// b, err := ioutil.ReadFile(path)
-	// if err != nil {
-	// 	log.Fatal(err)
-	// }
-	// signedData, err := pkcs7.NewSignedData(b)
-	// if err != nil {
-	// 	log.Fatalf("Cannot initialize signed data: %s", err)
-	// }
-	// if err := signedData.AddSigner(cert, key, pkcs7.SignerInfoConfig{}); err != nil {
-	// 	log.Fatalf("Cannot add signer: %s", err)
-	// }
-	// signedData.Detach()
-	// detachedSignature, err := signedData.Finish()
-	// if err != nil {
-	// 	log.Fatalf("Cannot finish signing data: %s", err)
-	// }
-	// return detachedSignature
-	return []byte{}
-}
-
 func main() {
 	key := flag.String("key", "", "Key")
 	cert := flag.String("cert", "", "Certificate")
@@ -92,6 +71,7 @@ func main() {
 	if err != nil {
 		log.Fatal(err)
 	}
+
 	attrs := efi.ValidAttributes[*variable]
 	attrs |= attributes.EFI_VARIABLE_APPEND_WRITE
 
@@ -104,6 +84,7 @@ func main() {
 		Data:    b,
 	}
 	signedVariable := signature.NewSignedEFIVariable(ctx)
+
 	buf := new(bytes.Buffer)
 	signature.WriteEFIVariableAuthencation2(buf, *signedVariable)
 	buf.Write(b)

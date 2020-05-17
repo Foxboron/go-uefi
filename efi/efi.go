@@ -1,5 +1,7 @@
 package efi
 
+// Top level API for goefi
+
 import (
 	"bytes"
 	"encoding/binary"
@@ -10,6 +12,24 @@ import (
 	"github.com/foxboron/goefi/efi/device"
 	"github.com/foxboron/goefi/efi/signature"
 )
+
+// Keeps track of expected attributes for each variable
+var ValidAttributes = map[string]attributes.Attributes{
+	"SetupMode": attributes.EFI_VARIABLE_NON_VOLATILE |
+		attributes.EFI_VARIABLE_BOOTSERVICE_ACCESS,
+	"PK": attributes.EFI_VARIABLE_NON_VOLATILE |
+		attributes.EFI_VARIABLE_BOOTSERVICE_ACCESS |
+		attributes.EFI_VARIABLE_RUNTIME_ACCESS |
+		attributes.EFI_VARIABLE_TIME_BASED_AUTHENTICATED_WRITE_ACCESS,
+	"KEK": attributes.EFI_VARIABLE_NON_VOLATILE |
+		attributes.EFI_VARIABLE_BOOTSERVICE_ACCESS |
+		attributes.EFI_VARIABLE_RUNTIME_ACCESS |
+		attributes.EFI_VARIABLE_TIME_BASED_AUTHENTICATED_WRITE_ACCESS,
+	"db": attributes.EFI_VARIABLE_NON_VOLATILE |
+		attributes.EFI_VARIABLE_BOOTSERVICE_ACCESS |
+		attributes.EFI_VARIABLE_RUNTIME_ACCESS |
+		attributes.EFI_VARIABLE_TIME_BASED_AUTHENTICATED_WRITE_ACCESS,
+}
 
 func GetBoorOrder() []string {
 	ret := []string{}
@@ -30,26 +50,7 @@ func GetBootEntry(entry string) {
 
 func GetSetupMode() []byte {
 	attributes.ReadEfivars("SetupMode")
-	attributes.ReadEfivars("PK")
-	attributes.ReadEfivars("BootOrder")
 	return []byte{}
-}
-
-var ValidAttributes = map[string]attributes.Attributes{
-	"SetupMode": attributes.EFI_VARIABLE_NON_VOLATILE |
-		attributes.EFI_VARIABLE_BOOTSERVICE_ACCESS,
-	"PK": attributes.EFI_VARIABLE_NON_VOLATILE |
-		attributes.EFI_VARIABLE_BOOTSERVICE_ACCESS |
-		attributes.EFI_VARIABLE_RUNTIME_ACCESS |
-		attributes.EFI_VARIABLE_TIME_BASED_AUTHENTICATED_WRITE_ACCESS,
-	"KEK": attributes.EFI_VARIABLE_NON_VOLATILE |
-		attributes.EFI_VARIABLE_BOOTSERVICE_ACCESS |
-		attributes.EFI_VARIABLE_RUNTIME_ACCESS |
-		attributes.EFI_VARIABLE_TIME_BASED_AUTHENTICATED_WRITE_ACCESS,
-	"db": attributes.EFI_VARIABLE_NON_VOLATILE |
-		attributes.EFI_VARIABLE_BOOTSERVICE_ACCESS |
-		attributes.EFI_VARIABLE_RUNTIME_ACCESS |
-		attributes.EFI_VARIABLE_TIME_BASED_AUTHENTICATED_WRITE_ACCESS,
 }
 
 func GetPK() error {
