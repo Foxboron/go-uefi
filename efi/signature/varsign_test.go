@@ -2,10 +2,9 @@ package signature
 
 import (
 	"bytes"
+	"fmt"
 	"io/ioutil"
 	"log"
-	"os"
-	"path/filepath"
 	"testing"
 )
 
@@ -15,11 +14,13 @@ func TestReadEFIVariableAuthentication2File(t *testing.T) {
 	if err != nil {
 		log.Fatal(err)
 	}
-	for _, file := range files {
-		path := filepath.Join(dir, file.Name())
-		file, _ := os.Open(path)
-		b, _ := ioutil.ReadAll(file)
+	for _, _ = range files {
+		// path := filepath.Join(dir, file.Name())
+		path := "../../KEK.der.siglist.auth"
+		b, _ := ioutil.ReadFile(path)
 		f := bytes.NewReader(b)
-		ReadEFIVariableAuthencation2(f)
+		d := ReadEFIVariableAuthencation2(f)
+		fmt.Printf("%+v\n", d.Time)
+		break
 	}
 }

@@ -28,7 +28,7 @@ type contentInfo struct {
 }
 
 func PatchASN1(b []byte) []byte {
-	var c contentInfo
-	asn1.Unmarshal(b, &c)
-	return c.Content.Bytes
+	// var c contentInfo
+	// asn1.Unmarshal(b, &c)
+	return b[19:]
 }

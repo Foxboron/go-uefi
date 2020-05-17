@@ -59,6 +59,8 @@ func TestParseSignatureListFile(t *testing.T) {
 		if util.CmpEFIGUID(c.SignatureType, CERT_X509_GUID) {
 			// Run over and ensure we are getting the correct type
 			for _, d := range c.Signatures {
+				fmt.Println(file.Name())
+				fmt.Println(d.Owner.Format())
 				_, err := pkcs7.NewSignedData(d.Data)
 				if err != nil {
 					log.Fatal(err)

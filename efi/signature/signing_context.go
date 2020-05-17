@@ -5,7 +5,6 @@ import (
 	"crypto/rsa"
 	"crypto/x509"
 	"encoding/binary"
-	"fmt"
 	"log"
 
 	"github.com/foxboron/goefi/efi/attributes"
@@ -30,30 +29,17 @@ func NewSignedEFIVariable(ctx *SigningContext) *EFIVariableAuthentication2 {
 	efva := NewEFIVariableAuthentication2()
 	// The order is important
 	// TODO: Expose the Time variable
-	time := util.EFITime{Year: 2020,
-		Month:      4,
-		Day:        15,
-		Hour:       21,
-		Minute:     1,
-		Second:     45,
-		Pad1:       0,
-		Nanosecond: 0,
-		TimeZone:   0,
-		Daylight:   0,
-		Pad2:       0}
+	s := []byte{}
+	for _, n := range ctx.Varname {
+		s = append(s, n, 0x00)
+	}
 	writeOrder := []interface{}{
-		ctx.Varname,
+		s,
 		ctx.Guid,
 		ctx.Attr,
-		time,
+		efva.Time,
 		ctx.Data,
 	}
-	fmt.Printf("%+v", writeOrder)
-	// BIO_write(data_bio, ctx->var_name, ctx->var_name_bytes);
-	// BIO_write(data_bio, &ctx->var_guid, sizeof(ctx->var_guid));
-	// BIO_write(data_bio, &ctx->var_attrs, sizeof(ctx->var_attrs));
-	// BIO_write(data_bio, &timestamp, sizeof(timestamp));
-	// BIO_write(data_bio, ctx->data, ctx->data_len);
 	for _, d := range writeOrder {
 		if err := binary.Write(buf, binary.LittleEndian, d); err != nil {
 			log.Fatal(err)
@@ -82,16 +68,15 @@ func NewSignedEFIVariable(ctx *SigningContext) *EFIVariableAuthentication2 {
 	sd.SetDigestAlgorithm(pkcs7.OIDDigestAlgorithmSHA256)
 	sd.SetEncryptionAlgorithm(pkcs7.OIDEncryptionAlgorithmRSA)
 
-	sd.RemoveUnauthenticatedAttributes()
 	if err := sd.AddSigner(ctx.Cert, ctx.Key, pkcs7.SignerInfoConfig{}); err != nil {
 		log.Fatalf("Cannot add signer: %s", err)
 	}
+	sd.RemoveUnauthenticatedAttributes()
 	sd.Detach()
 	detachedSignature, err := sd.Finish()
 	if err != nil {
 		log.Fatal(err)
 	}
-	detachedSignature = util.PatchASN1(detachedSignature)
 	efva.AuthInfo.Header.Length += uint32(len(detachedSignature))
 	efva.AuthInfo.CertData = detachedSignature
 	return efva

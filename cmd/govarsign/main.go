@@ -92,12 +92,15 @@ func main() {
 	if err != nil {
 		log.Fatal(err)
 	}
+	attrs := efi.ValidAttributes[*variable]
+	attrs |= attributes.EFI_VARIABLE_APPEND_WRITE
+
 	ctx := &signature.SigningContext{
 		Cert:    ReadCert(*cert),
 		Key:     ReadKey(*key),
 		Varname: []byte(*variable),
 		Guid:    attributes.EFI_GLOBAL_VARIABLE,
-		Attr:    efi.ValidAttributes[*variable] | attributes.EFI_VARIABLE_APPEND_WRITE,
+		Attr:    attrs,
 		Data:    b,
 	}
 	signedVariable := signature.NewSignedEFIVariable(ctx)

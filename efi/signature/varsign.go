@@ -35,7 +35,7 @@ type WINCertificate struct {
 	Certificate []uint8
 }
 
-const SizeofWINCertificate = 4 + 2 + 2 + 1
+const SizeofWINCertificate = 4 + 2 + 2
 
 func ReadWinCertificate(f *bytes.Reader) WINCertificate {
 	var cert WINCertificate
@@ -68,7 +68,7 @@ var (
 type WinCertificateUEFIGUID struct {
 	Header   WINCertificate
 	CertType util.EFIGUID // One of the EFI_CERT types
-	CertData []byte
+	CertData []uint8
 }
 
 const SizeofWinCertificateUEFIGUID = SizeofWINCertificate + 16
