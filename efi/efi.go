@@ -76,7 +76,7 @@ func GetPK() error {
 		log.Fatal(err)
 	}
 	if (ValidAttributes[efivar] & s.Attributes) != ValidAttributes[efivar] {
-		return fmt.Errorf("Invalid bitmask")
+		return fmt.Errorf("invalid bitmask")
 	}
 	f := bytes.NewReader(s.Data)
 	signature.ReadSignatureLists(f)
@@ -90,7 +90,7 @@ func GetKEK() error {
 		log.Fatal(err)
 	}
 	if (ValidAttributes[efivar] & s.Attributes) != ValidAttributes[efivar] {
-		return fmt.Errorf("Invalid bitmask")
+		return fmt.Errorf("invalid bitmask")
 	}
 	f := bytes.NewReader(s.Data)
 	signature.ReadSignatureLists(f)
@@ -104,7 +104,7 @@ func Getdb() error {
 		log.Fatal(err)
 	}
 	if (ValidAttributes[efivar] & s.Attributes) != ValidAttributes[efivar] {
-		return fmt.Errorf("Invalid bitmask")
+		return fmt.Errorf("invalid bitmask")
 	}
 	f := bytes.NewReader(s.Data)
 	signature.ReadSignatureLists(f)
