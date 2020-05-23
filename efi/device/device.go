@@ -60,8 +60,8 @@ func (e EFIDevicePath) Format() string {
 	return "No format"
 }
 
-func ParseDevicePath(f *bytes.Reader) []EFIDevicePaths {
-	var ret []EFIDevicePaths
+func ParseDevicePath(f *bytes.Reader) []*EFIDevicePaths {
+	var ret []*EFIDevicePaths
 	for {
 		var efidevice EFIDevicePath
 		if err := binary.Read(f, binary.LittleEndian, &efidevice); err != nil {
@@ -70,16 +70,16 @@ func ParseDevicePath(f *bytes.Reader) []EFIDevicePaths {
 		switch efidevice.Type {
 		case Hardware:
 			d := ParseHardwareDevicePath(f, &efidevice)
-			ret = append(ret, d)
+			ret = append(ret, &d)
 		case ACPI:
 			d := ParseACPIDevicePath(f, &efidevice)
-			ret = append(ret, d)
+			ret = append(ret, &d)
 		case MediaDevicePath:
 			d := ParseMediaDevicePath(f, &efidevice)
-			ret = append(ret, d)
+			ret = append(ret, &d)
 		case MessagingDevicePath:
 			d := ParseMessagingDevicePath(f, &efidevice)
-			ret = append(ret, d)
+			ret = append(ret, &d)
 		case EndOfHardwareDevicePath:
 			// log.Printf("Reached end of HardwareDevicePath: %+v\n", efidevice)
 			goto end

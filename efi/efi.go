@@ -41,11 +41,12 @@ func GetBoorOrder() []string {
 	return ret
 }
 
-func GetBootEntry(entry string) {
+func GetBootEntry(entry string) *device.EFILoadOption {
 	s, _ := attributes.ReadEfivars(entry)
 	f := bytes.NewReader(s.Data)
-	_ = device.ParseEFILoadOption(f)
-	_ = device.ParseDevicePath(f)
+	loadOption := device.ParseEFILoadOption(f)
+	loadOption.FilePath = device.ParseDevicePath(f)
+	return loadOption
 }
 
 func GetSetupMode() []byte {
