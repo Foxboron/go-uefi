@@ -9,14 +9,18 @@ import (
 	"github.com/foxboron/goefi/efi/util"
 )
 
+//  Section 3.1.3 Load Options
+// Page 71
 type EFILoadOption struct {
 	Attributes         attributes.Attributes
 	FilePathListLength uint16
 	Description        []byte
-	FilePath           []*EFIDevicePath
-	Path               []byte
+	FilePath           []*EFIDevicePaths
+	OptionalData       []byte // TODO: Implement
 }
 
+// Section 10.3 Device Path Nodes
+// Page 286
 type DevicePathType uint8
 
 const (
@@ -29,13 +33,19 @@ const (
 	EndOfHardwareDevicePath DevicePathType = 127
 )
 
+// Section 10.3.1 Generic Device Path Structures
+// Page 287
 type DevicePathSubType uint8
 
+// Table 45. Device Path End Structure
+// Subtypes of EndofHardwareDevicePath
 const (
 	NewDevicePath   DevicePathSubType = 1
 	NoNewDevicePath DevicePathSubType = 255
 )
 
+// Section 10.2 EFI Device Path Protocol
+// Page 285
 type EFIDevicePath struct {
 	Type    DevicePathType
 	SubType DevicePathSubType
