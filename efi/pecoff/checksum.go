@@ -6,7 +6,6 @@ import (
 	"crypto/x509"
 	"debug/pe"
 	"encoding/binary"
-	"fmt"
 	"log"
 )
 
@@ -92,11 +91,8 @@ func PECOFFChecksum(peFile []byte) *PECOFFSigningContext {
 	sectionEnd := sectionOffset + sectionSize
 	addr := f.OptionalHeader.(*pe.OptionalHeader64).DataDirectory[4].VirtualAddress
 	certSize := f.OptionalHeader.(*pe.OptionalHeader64).DataDirectory[4].Size
-	fmt.Printf("%+v\n", f.OptionalHeader.(*pe.OptionalHeader64).DataDirectory)
-	fmt.Printf("Debug: Addr: %x, CertSize: %d", addr, certSize)
 
 	if certSize > 0 {
-		fmt.Println(addr)
 		hashBuffer.Write(peFile[sectionEnd:addr])
 	} else {
 		hashBuffer.Write(peFile[sectionEnd:])

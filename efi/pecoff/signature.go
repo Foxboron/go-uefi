@@ -11,7 +11,6 @@ import (
 	"debug/pe"
 	"encoding/asn1"
 	"encoding/binary"
-	"fmt"
 	"log"
 	"math/big"
 	"time"
@@ -224,7 +223,6 @@ func CreateASN1(cert *x509.Certificate, key *rsa.PrivateKey, ctx *PECOFFSigningC
 	}
 
 	h := sha256.New()
-	fmt.Println(ci.ContentType)
 	var attr []Attribute
 	for _, v := range []struct {
 		Type  asn1.ObjectIdentifier
@@ -243,7 +241,6 @@ func CreateASN1(cert *x509.Certificate, key *rsa.PrivateKey, ctx *PECOFFSigningC
 			Value: messageDigest[:],
 		},
 	} {
-		fmt.Println(v.Type)
 		asn1Value, err := asn1.Marshal(v.Value)
 		if err != nil {
 			log.Fatal(err)
@@ -298,38 +295,40 @@ func SignPECOFF(ctx *PECOFFSigningContext) []byte {
 		panic("There isn't any DataDirectory struct in the offset. There should be!")
 	}
 
+	// Need to pack the data before hashing
+	// Should be moved outside of the signing code
+	certTablePad := (ctx.OriginalSize + 7) / 8 * 8
+	certTablePad = certTablePad - ctx.OriginalSize
+	ctx.PEFile = append(ctx.PEFile, make([]byte, certTablePad)...)
+	ctx.SigData.Write(make([]byte, certTablePad))
+
 	detachedSignature := CreateASN1(ctx.Cert, ctx.Key, ctx)
 
-	// I don't know what this is
 	padded := (len(detachedSignature) + 7) / 8 * 8
 	info := signature.WINCertificate{
-		Length: uint32(8 + padded),
-		//Length:      uint32(len(detachedSignature)),
+		Length:      uint32(8 + padded),
 		Revision:    0x0200,
 		CertType:    signature.WIN_CERT_TYPE_PKCS_SIGNED_DATA,
 		Certificate: detachedSignature,
 	}
 	var certBuf bytes.Buffer
+
 	for _, v := range []interface{}{info.Length, info.Revision, info.CertType, info.Certificate} {
 		binary.Write(&certBuf, binary.LittleEndian, v)
 	}
-	//certBuf.Write(detachedSignature)
-	//certBuf.Write(make([]byte, padded-len(detachedSignature)))
-	// pack data directory
+	// This packs the certificate upwards
+	certBuf.Write(make([]byte, padded-len(detachedSignature)))
 
 	datadir = pe.DataDirectory{
-		VirtualAddress: uint32(ctx.OriginalSize),
-		Size:           uint32(len(detachedSignature) + 8),
+		VirtualAddress: uint32(ctx.OriginalSize + certTablePad),
+		Size:           uint32(padded + 8),
 	}
 
 	datadirBuf := new(bytes.Buffer)
-
 	if err := binary.Write(datadirBuf, binary.LittleEndian, &datadir); err != nil {
 		panic("Can't create DataDir with context")
 	}
 	copy(ctx.PEFile[ctx.DD4Start:], datadirBuf.Bytes())
-	//buf = ctx.PEFile[ctx.DD4Start:ctx.DD4End]
-	// This code needs to figure out the end of the cert and remove it before appending
 	pefile := append(ctx.PEFile, certBuf.Bytes()...)
 	return pefile
 }
