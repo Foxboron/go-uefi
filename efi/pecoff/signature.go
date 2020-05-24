@@ -205,7 +205,8 @@ func CreateASN1(cert *x509.Certificate, key *rsa.PrivateKey, ctx *PECOFFSigningC
 		indirect.Data.Type = OIDSpcPEImageDataObjID
 		sum := sha256.Sum256(ctx.SigData.Bytes())
 		indirect.MessageDigest.Digest = sum[:]
-		indirect.MessageDigest.DigestAlgorithm = pkix.AlgorithmIdentifier{Algorithm: OIDDigestAlgorithmSHA256}
+		indirect.MessageDigest.DigestAlgorithm = pkix.AlgorithmIdentifier{Algorithm: OIDDigestAlgorithmSHA256,
+			Parameters: asn1.NullRawValue}
 		indirect.Data.Value.File.File.Unicode = string([]byte{0x00, 0x3c, 0x00, 0x3c, 0x00, 0x3c, 0x00, 0x4f, 0x00, 0x62,
 			0x00, 0x73, 0x00, 0x6f, 0x00, 0x6c, 0x00, 0x65, 0x00, 0x74,
 			0x00, 0x65, 0x00, 0x3e, 0x00, 0x3e, 0x00, 0x3E})
@@ -265,14 +266,14 @@ func CreateASN1(cert *x509.Certificate, key *rsa.PrivateKey, ctx *PECOFFSigningC
 			IssuerName:   asn1.RawValue{FullBytes: cert.RawIssuer},
 		},
 		AuthenticatedAttributes:   attr,
-		DigestAlgorithm:           pkix.AlgorithmIdentifier{Algorithm: OIDDigestAlgorithmSHA256},
-		DigestEncryptionAlgorithm: pkix.AlgorithmIdentifier{Algorithm: OIDEncryptionAlgorithmRSA},
+		DigestAlgorithm:           pkix.AlgorithmIdentifier{Algorithm: OIDDigestAlgorithmSHA256, Parameters: asn1.NullRawValue},
+		DigestEncryptionAlgorithm: pkix.AlgorithmIdentifier{Algorithm: OIDEncryptionAlgorithmRSA, Parameters: asn1.NullRawValue},
 		EncryptedDigest:           sig,
 	}
 
 	ss := SignerData{
 		Version:                    1,
-		DigestAlgorithmIdentifiers: []pkix.AlgorithmIdentifier{{Algorithm: OIDDigestAlgorithmSHA256}},
+		DigestAlgorithmIdentifiers: []pkix.AlgorithmIdentifier{{Algorithm: OIDDigestAlgorithmSHA256, Parameters: asn1.NullRawValue}},
 		ContentInfo:                ci,
 		Certificates:               MarshalCertificates(cert),
 		CRLs:                       nil,
