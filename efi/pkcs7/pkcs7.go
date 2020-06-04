@@ -290,4 +290,18 @@ func SignData(ctx *SigningContext) []byte {
 	}
 	return b
 }
+
+func VerifySignature(cert *x509.Certificate, buf []byte) bool {
+	var payload Wrapper
+	_, err := asn1.Unmarshal(buf, &payload)
+	if err != nil {
+		log.Fatal(err)
+	}
+	for _, si := range payload.Content.SignerInfos {
+		sigData := MarshalAttributes(si.AuthenticatedAttributes)
+		if err := cert.CheckSignature(x509.SHA256WithRSA, sigData, si.EncryptedDigest); err != nil {
+			return false
+		}
+	}
+	return true
 }
