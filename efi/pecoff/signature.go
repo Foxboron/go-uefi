@@ -289,10 +289,15 @@ func CreateASN1(cert *x509.Certificate, key *rsa.PrivateKey, ctx *PECOFFSigningC
 }
 
 func SignPECOFF(ctx *PECOFFSigningContext) []byte {
+	hasCert := false
+
 	var datadir pe.DataDirectory
 	buf := ctx.PEFile[ctx.DD4Start:ctx.DD4End]
 	if err := binary.Read(bytes.NewBuffer(buf), binary.LittleEndian, &datadir); err != nil {
 		panic("There isn't any DataDirectory struct in the offset. There should be!")
+	}
+	if datadir.VirtualAddress != 0 && datadir.Size != 0 {
+		hasCert = true
 	}
 
 	// Need to pack the data before hashing
@@ -316,19 +321,33 @@ func SignPECOFF(ctx *PECOFFSigningContext) []byte {
 	for _, v := range []interface{}{info.Length, info.Revision, info.CertType, info.Certificate} {
 		binary.Write(&certBuf, binary.LittleEndian, v)
 	}
+
 	// This packs the certificate upwards
 	certBuf.Write(make([]byte, padded-len(detachedSignature)))
 
-	datadir = pe.DataDirectory{
-		VirtualAddress: uint32(ctx.OriginalSize + certTablePad),
-		Size:           uint32(padded + 8),
+	// If we can find a data directory 4, it means there are certificates on this immage.
+	// We modify the size if we can find it, else we create it from scratch
+	if !hasCert {
+		datadir = pe.DataDirectory{
+			VirtualAddress: uint32(ctx.OriginalSize + certTablePad),
+			Size:           uint32(padded + 8),
+		}
+	} else {
+		datadir = pe.DataDirectory{
+			VirtualAddress: datadir.VirtualAddress,
+			Size:           datadir.Size + uint32(padded+8),
+		}
 	}
 
+	// Create the struct and overwrite the datadirectory
 	datadirBuf := new(bytes.Buffer)
 	if err := binary.Write(datadirBuf, binary.LittleEndian, &datadir); err != nil {
 		panic("Can't create DataDir with context")
 	}
 	copy(ctx.PEFile[ctx.DD4Start:], datadirBuf.Bytes())
+
+	// Append the certificate at the end of the file
+	// TODO: Should we optimize this?
 	pefile := append(ctx.PEFile, certBuf.Bytes()...)
 	return pefile
 }
