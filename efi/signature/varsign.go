@@ -47,6 +47,11 @@ func ReadWinCertificate(f *bytes.Reader) WINCertificate {
 	if cert.Revision != WIN_CERTIFICATE_REVISION {
 		log.Fatalf("WINCertificate revision should be %x, but is %x. Malformed or invalid", WIN_CERTIFICATE_REVISION, cert.Revision)
 	}
+	certLength := make([]byte, cert.Length-SizeofWINCertificate)
+	if err := binary.Read(f, binary.LittleEndian, certLength); err != nil {
+		log.Fatal(err)
+	}
+	cert.Certificate = certLength[:]
 	return cert
 }
 
