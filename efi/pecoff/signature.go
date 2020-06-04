@@ -81,3 +81,14 @@ func SignPECOFF(ctx *PECOFFSigningContext) []byte {
 	pefile := append(ctx.PEFile, certBuf.Bytes()...)
 	return pefile
 }
+
+func GetSignatures(peFile []byte) []byte {
+	buf := bytes.NewReader(peFile)
+	f, err := pe.NewFile(buf)
+	if err != nil {
+		log.Fatal(err)
+	}
+	addr := f.OptionalHeader.(*pe.OptionalHeader64).DataDirectory[4].VirtualAddress
+	certSize := f.OptionalHeader.(*pe.OptionalHeader64).DataDirectory[4].Size
+	return peFile[addr : addr+certSize]
+}
