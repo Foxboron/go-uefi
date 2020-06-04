@@ -13,7 +13,7 @@ import (
 )
 
 // Handles the values we use for EFI Variable signatures
-type SigningContext struct {
+type EFIVariableSigningContext struct {
 	Cert    *x509.Certificate
 	Key     *rsa.PrivateKey
 	Varname []byte
@@ -24,7 +24,8 @@ type SigningContext struct {
 
 // Uses EFIVariableAuthentication2
 // Section 8.2.2 - Using the EFI_VARIABLE_AUTHENTICATION_2 descriptor
-func NewSignedEFIVariable(ctx *SigningContext) *EFIVariableAuthentication2 {
+func NewSignedEFIVariable(ctx *EFIVariableSigningContext) *EFIVariableAuthentication2 {
+	// TODO: Move to internal pkcs7 library
 	buf := new(bytes.Buffer)
 	efva := NewEFIVariableAuthentication2()
 	// The order is important

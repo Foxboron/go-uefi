@@ -17,6 +17,7 @@ type PECOFFSigningContext struct {
 	OriginalSize int
 	PEFile       []byte
 	SigData      *bytes.Buffer
+	Indirect     bool
 }
 
 func PECOFFChecksum(peFile []byte) *PECOFFSigningContext {
