@@ -26,6 +26,12 @@ var (
 	WIN_CERT_TYPE_EFI_GUID         WINCertType = 0x0EF1
 )
 
+var WINCertTypeString = map[WINCertType]string{
+	0x0002: "WIN_CERT_TYPE_PKCS_SIGNED_DATA",
+	0x0EF0: "WIN_CERT_TYPE_EFI_PKCS1_15",
+	0x0EF1: "WIN_CERT_TYPE_EFI_GUID",
+}
+
 // PE/COFF structure for signing
 // Page 1705
 type WINCertificate struct {
