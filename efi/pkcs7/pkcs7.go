@@ -156,7 +156,7 @@ func NewContentInfo(contentType asn1.ObjectIdentifier, data interface{}) (ci Con
 	return ContentInfo{Content: ciblob, ContentType: contentType}, nil
 }
 
-type Wrapper struct {
+type SignedData struct {
 	ContentType asn1.ObjectIdentifier
 	Content     SignerData `asn1:"explicit,optional,tag:0"`
 }
@@ -280,7 +280,7 @@ func SignData(ctx *SigningContext) []byte {
 		SignerInfos:                []SignerInfo{s},
 	}
 
-	Payload := Wrapper{
+	Payload := SignedData{
 		ContentType: OIDSignedData,
 		Content:     ss,
 	}
@@ -291,12 +291,17 @@ func SignData(ctx *SigningContext) []byte {
 	return b
 }
 
-func VerifySignature(cert *x509.Certificate, buf []byte) bool {
-	var payload Wrapper
+func ParseSignature(buf []byte) *SignedData {
+	var payload SignedData
 	_, err := asn1.Unmarshal(buf, &payload)
 	if err != nil {
 		log.Fatal(err)
 	}
+	return &payload
+}
+
+func VerifySignature(cert *x509.Certificate, buf []byte) bool {
+	payload := ParseSignature(buf)
 	for _, si := range payload.Content.SignerInfos {
 		sigData := MarshalAttributes(si.AuthenticatedAttributes)
 		if err := cert.CheckSignature(x509.SHA256WithRSA, sigData, si.EncryptedDigest); err != nil {
