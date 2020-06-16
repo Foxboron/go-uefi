@@ -280,15 +280,23 @@ func SignData(ctx *SigningContext) []byte {
 		SignerInfos:                []SignerInfo{s},
 	}
 
-	Payload := SignedData{
-		ContentType: OIDSignedData,
-		Content:     ss,
+	if ctx.Indirect {
+		Payload := SignedData{
+			ContentType: OIDSignedData,
+			Content:     ss,
+		}
+		b, err := asn1.Marshal(Payload)
+		if err != nil {
+			log.Fatal(err)
+		}
+		return b
+	} else {
+		b, err := asn1.Marshal(ss)
+		if err != nil {
+			log.Fatal(err)
+		}
+		return b
 	}
-	b, err := asn1.Marshal(Payload)
-	if err != nil {
-		log.Fatal(err)
-	}
-	return b
 }
 
 func ParseSignature(buf []byte) *SignedData {
