@@ -8,8 +8,8 @@ import (
 	"log"
 
 	"github.com/foxboron/goefi/efi/attributes"
+	"github.com/foxboron/goefi/efi/pkcs7"
 	"github.com/foxboron/goefi/efi/util"
-	"github.com/foxboron/pkcs7"
 )
 
 // Handles the values we use for EFI Variable signatures
@@ -46,32 +46,16 @@ func NewSignedEFIVariable(ctx *EFIVariableSigningContext) *EFIVariableAuthentica
 			log.Fatal(err)
 		}
 	}
-	sd, err := pkcs7.NewSignedData(buf.Bytes())
-	if err != nil {
-		log.Fatal(err)
+
+	sigCtx := &pkcs7.SigningContext{
+		Cert:     ctx.Cert,
+		Key:      ctx.Key,
+		SigData:  buf.Bytes(),
+		Indirect: false,
 	}
 
-	// Page 246
+	detachedSignature := pkcs7.SignData(sigCtx)
 
-	// SignedData.digestAlgorithms shall contain the digest algorithm used when
-	// preparing the signature. Only a digest algorithm of SHA-256 is accepted
-
-	// SignerInfo.digestEncryptionAlgorithm shall be set to the algorithm used to
-	// sign the data. Only a digest encryption algorithm of RSA with PKCS #1 v1.5
-	// padding (RSASSA_PKCS1v1_5). is accepted.
-
-	sd.SetDigestAlgorithm(pkcs7.OIDDigestAlgorithmSHA256)
-	sd.SetEncryptionAlgorithm(pkcs7.OIDEncryptionAlgorithmRSA)
-
-	if err := sd.AddSigner(ctx.Cert, ctx.Key, pkcs7.SignerInfoConfig{}); err != nil {
-		log.Fatalf("Cannot add signer: %s", err)
-	}
-	sd.RemoveUnauthenticatedAttributes()
-	sd.Detach()
-	detachedSignature, err := sd.Finish()
-	if err != nil {
-		log.Fatal(err)
-	}
 	efva.AuthInfo.Header.Length += uint32(len(detachedSignature))
 	efva.AuthInfo.CertData = detachedSignature
 	return efva
