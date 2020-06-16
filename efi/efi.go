@@ -110,3 +110,30 @@ func Getdb() error {
 	signature.ReadSignatureLists(f)
 	return nil
 }
+
+func SignEFIVariable(key *rsa.PrivateKey, cert *x509.Certificate, varname string, siglist []byte) []byte {
+	attrs := ValidAttributes[varname]
+	attrs |= attributes.EFI_VARIABLE_APPEND_WRITE
+
+	var guid util.EFIGUID
+
+	if ok := attributes.ImageSecurityDatabases[varname]; ok {
+		guid = attributes.EFI_IMAGE_SECURITY_DATABASE_GUID
+	} else {
+		guid = attributes.EFI_GLOBAL_VARIABLE
+	}
+
+	ctx := &signature.EFIVariableSigningContext{
+		Cert:    cert,
+		Key:     key,
+		Varname: []byte(varname),
+		Guid:    guid,
+		Attr:    attrs,
+		Data:    siglist,
+	}
+	signedVariable := signature.NewSignedEFIVariable(ctx)
+	buf := new(bytes.Buffer)
+	signature.WriteEFIVariableAuthencation2(buf, *signedVariable)
+	buf.Write(siglist)
+	return buf.Bytes()
+}
