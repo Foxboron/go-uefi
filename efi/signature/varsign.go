@@ -87,11 +87,12 @@ const SizeofWinCertificateUEFIGUID = SizeofWINCertificate + 16
 func ReadWinCertificateUEFIGUID(f *bytes.Reader) WinCertificateUEFIGUID {
 	var cert WinCertificateUEFIGUID
 	cert.Header = ReadWinCertificate(f)
-	if err := binary.Read(f, binary.LittleEndian, &cert.CertType); err != nil {
+	reader := bytes.NewBuffer(cert.Header.Certificate)
+	if err := binary.Read(reader, binary.LittleEndian, &cert.CertType); err != nil {
 		log.Fatal(err)
 	}
-	rbuf := make([]byte, cert.Header.Length)
-	if err := binary.Read(f, binary.LittleEndian, rbuf); err != nil {
+	rbuf := make([]byte, reader.Len())
+	if err := binary.Read(reader, binary.LittleEndian, rbuf); err != nil {
 		log.Fatal(err)
 	}
 	cert.CertData = rbuf[:]
