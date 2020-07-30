@@ -39,10 +39,7 @@ func ParseKeyDb(filename string) {
 	}
 }
 
-func ParseSignatureList(filename string) {
-	b, _ := ioutil.ReadFile(filename)
-	f := bytes.NewReader(b)
-	siglist := signature.ReadSignatureLists(f)
+func FormatSignatureList(siglist []*signature.SignatureList) {
 	for _, sig := range siglist {
 		fmt.Printf("Signature Type: %s\n", signature.ValidEFISignatureSchemes[sig.SignatureType])
 		fmt.Printf("Signature List List Size : %d\n", sig.ListSize)
@@ -66,6 +63,22 @@ func ParseSignatureList(filename string) {
 			}
 		}
 	}
+}
+
+func ParseSignatureList(filename string) {
+	b, _ := ioutil.ReadFile(filename)
+	f := bytes.NewReader(b)
+	siglist := signature.ReadSignatureLists(f)
+	FormatSignatureList(siglist)
+}
+
+func ParseEFIAuthVariable(filename string) {
+	b, _ := ioutil.ReadFile(filename)
+	reader := bytes.NewReader(b)
+	// Fetch the signature
+	_ = signature.ReadEFIVariableAuthencation2(reader)
+	siglist := signature.ReadSignatureLists(reader)
+	FormatSignatureList(siglist)
 }
 
 func ParseEFIImage(filename string) {
@@ -93,16 +106,6 @@ func ParseEFIImage(filename string) {
 			break
 		}
 	}
-}
-
-func ParseEFIAuthVariable(filename string) {
-	b, _ := ioutil.ReadFile(filename)
-	reader := bytes.NewReader(b)
-	sig := signature.ReadEFIVariableAuthencation2(reader)
-	fmt.Printf("%s", sig.AuthInfo.CertData)
-	// f := bytes.NewReader(sig.AuthInfo.Header.Certificate)
-	// siglist := signature.ReadSignatureLists(f)
-	// fmt.Println(siglist)
 }
 
 func main() {
