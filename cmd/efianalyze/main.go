@@ -16,7 +16,7 @@ import (
 	"github.com/foxboron/goefi/efi/signature"
 )
 
-func ParseSignatureList(filename string) {
+func ParseKeyDb(filename string) {
 	s, _ := attributes.ReadEfivarsFile(filename)
 	f := bytes.NewReader(s.Data)
 	siglist := signature.ReadSignatureLists(f)
@@ -34,6 +34,35 @@ func ParseSignatureList(filename string) {
 				cert, _ := x509.ParseCertificate(sigEntry.Data)
 				fmt.Printf("	Issuer: %s\n", cert.Issuer.String())
 				fmt.Printf("	Serial Number: %d\n", cert.SerialNumber)
+			}
+		}
+	}
+}
+
+func ParseSignatureList(filename string) {
+	b, _ := ioutil.ReadFile(filename)
+	f := bytes.NewReader(b)
+	siglist := signature.ReadSignatureLists(f)
+	for _, sig := range siglist {
+		fmt.Printf("Signature Type: %s\n", signature.ValidEFISignatureSchemes[sig.SignatureType])
+		fmt.Printf("Signature List List Size : %d\n", sig.ListSize)
+		fmt.Printf("Signature List Header Size : %d\n", sig.HeaderSize)
+		fmt.Printf("Signature List Size : %d\n", sig.Size)
+		fmt.Printf("Signature List Signature Header: %x\n", sig.SignatureHeader)
+		fmt.Printf("Signature List Signatures:\n")
+		for _, sigEntry := range sig.Signatures {
+			fmt.Printf("	Signature Owner: %s\n", sigEntry.Owner.Format())
+			switch sig.SignatureType {
+			case signature.CERT_X509_GUID:
+				cert, _ := x509.ParseCertificate(sigEntry.Data)
+				fmt.Printf("		Issuer: %s\n", cert.Issuer.String())
+				fmt.Printf("		Serial Number: %d\n", cert.SerialNumber)
+			case signature.CERT_SHA256_GUID:
+				fmt.Printf("		Type: %s\n", "SHA256")
+				fmt.Printf("		Checksum: %x\n", sigEntry.Data)
+			default:
+				fmt.Println("Not implemented!")
+				fmt.Println(sig.SignatureType.Format())
 			}
 		}
 	}
@@ -66,6 +95,16 @@ func ParseEFIImage(filename string) {
 	}
 }
 
+func ParseEFIAuthVariable(filename string) {
+	b, _ := ioutil.ReadFile(filename)
+	reader := bytes.NewReader(b)
+	sig := signature.ReadEFIVariableAuthencation2(reader)
+	fmt.Printf("%s", sig.AuthInfo.CertData)
+	// f := bytes.NewReader(sig.AuthInfo.Header.Certificate)
+	// siglist := signature.ReadSignatureLists(f)
+	// fmt.Println(siglist)
+}
+
 func main() {
 	if len(os.Args) == 1 {
 		log.Fatalln("Need type")
@@ -78,7 +117,11 @@ func main() {
 
 	switch efiType {
 	case "KEK", "PK", "db":
+		ParseKeyDb(file)
+	case "siglist":
 		ParseSignatureList(file)
+	case "signed":
+		ParseEFIAuthVariable(file)
 	case "signed-image":
 		ParseEFIImage(file)
 	}
