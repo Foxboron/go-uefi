@@ -29,6 +29,10 @@ var ValidAttributes = map[string]attributes.Attributes{
 		attributes.EFI_VARIABLE_BOOTSERVICE_ACCESS |
 		attributes.EFI_VARIABLE_RUNTIME_ACCESS |
 		attributes.EFI_VARIABLE_TIME_BASED_AUTHENTICATED_WRITE_ACCESS,
+	"dbx": attributes.EFI_VARIABLE_NON_VOLATILE |
+		attributes.EFI_VARIABLE_BOOTSERVICE_ACCESS |
+		attributes.EFI_VARIABLE_RUNTIME_ACCESS |
+		attributes.EFI_VARIABLE_TIME_BASED_AUTHENTICATED_WRITE_ACCESS,
 }
 
 func GetBoorOrder() []string {
