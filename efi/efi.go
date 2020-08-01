@@ -4,13 +4,17 @@ package efi
 
 import (
 	"bytes"
+	"crypto/rsa"
+	"crypto/x509"
 	"encoding/binary"
 	"fmt"
 	"log"
 
 	"github.com/foxboron/goefi/efi/attributes"
 	"github.com/foxboron/goefi/efi/device"
+	"github.com/foxboron/goefi/efi/pecoff"
 	"github.com/foxboron/goefi/efi/signature"
+	"github.com/foxboron/goefi/efi/util"
 )
 
 // Keeps track of expected attributes for each variable
@@ -137,4 +141,20 @@ func SignEFIVariable(key *rsa.PrivateKey, cert *x509.Certificate, varname string
 	signature.WriteEFIVariableAuthencation2(buf, *signedVariable)
 	buf.Write(siglist)
 	return buf.Bytes()
+}
+
+func SignEFIExecutable(key *rsa.PrivateKey, cert *x509.Certificate, file []byte) []byte {
+	ctx := pecoff.PECOFFChecksum(file)
+	ctx.Cert = cert
+	ctx.Key = key
+	b := pecoff.SignPECOFF(ctx)
+	return b
+}
+
+func WriteEFIVariable(variable string, buf []byte) error {
+	attrs := ValidAttributes[variable]
+	if err := attributes.WriteEfivars(variable, attrs, buf); err != nil {
+		return err
+	}
+	return nil
 }
