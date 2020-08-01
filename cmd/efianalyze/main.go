@@ -16,36 +16,15 @@ import (
 	"github.com/foxboron/goefi/efi/signature"
 )
 
-func ParseKeyDb(filename string) {
-	s, _ := attributes.ReadEfivarsFile(filename)
-	f := bytes.NewReader(s.Data)
-	siglist := signature.ReadSignatureLists(f)
-	for _, sig := range siglist {
-		fmt.Printf("Signature Type: %s\n", signature.ValidEFISignatureSchemes[sig.SignatureType])
-		fmt.Printf("Signature List List Size : %d\n", sig.ListSize)
-		fmt.Printf("Signature List Header Size : %d\n", sig.HeaderSize)
-		fmt.Printf("Signature List Size : %d\n", sig.Size)
-		fmt.Printf("Signature List Signature Header: %x\n", sig.SignatureHeader)
-		fmt.Printf("Signature List Signatures:\n")
-		for _, sigEntry := range sig.Signatures {
-			fmt.Printf("	Signature Owner: %s\n", sigEntry.Owner.Format())
-			switch sig.SignatureType {
-			case signature.CERT_X509_GUID:
-				cert, _ := x509.ParseCertificate(sigEntry.Data)
-				fmt.Printf("	Issuer: %s\n", cert.Issuer.String())
-				fmt.Printf("	Serial Number: %d\n", cert.SerialNumber)
-			}
-		}
-	}
-}
-
 func FormatSignatureList(siglist []*signature.SignatureList) {
+	fmt.Printf("\nNumber of Signatures in the Signature List: %d\n", len(siglist))
 	for _, sig := range siglist {
-		fmt.Printf("Signature Type: %s\n", signature.ValidEFISignatureSchemes[sig.SignatureType])
+		fmt.Printf("\nSignature Type: %s\n", signature.ValidEFISignatureSchemes[sig.SignatureType])
 		fmt.Printf("Signature List List Size : %d\n", sig.ListSize)
 		fmt.Printf("Signature List Header Size : %d\n", sig.HeaderSize)
 		fmt.Printf("Signature List Size : %d\n", sig.Size)
-		fmt.Printf("Signature List Signature Header: %x\n", sig.SignatureHeader)
+		fmt.Printf("Signature List Signature Header: %x (usually empty)\n", sig.SignatureHeader)
+		fmt.Printf("Signature List Number of Signatures: %d\n", len(sig.Signatures))
 		fmt.Printf("Signature List Signatures:\n")
 		for _, sigEntry := range sig.Signatures {
 			fmt.Printf("	Signature Owner: %s\n", sigEntry.Owner.Format())
@@ -65,6 +44,13 @@ func FormatSignatureList(siglist []*signature.SignatureList) {
 	}
 }
 
+func ParseKeyDb(filename string) {
+	s, _ := attributes.ReadEfivarsFile(filename)
+	f := bytes.NewReader(s.Data)
+	siglist := signature.ReadSignatureLists(f)
+	FormatSignatureList(siglist)
+}
+
 func ParseSignatureList(filename string) {
 	b, _ := ioutil.ReadFile(filename)
 	f := bytes.NewReader(b)
@@ -72,11 +58,41 @@ func ParseSignatureList(filename string) {
 	FormatSignatureList(siglist)
 }
 
+func FormatEFIVariableAuth2(sig *signature.EFIVariableAuthentication2) {
+	fmt.Println("EFI Authentication Variable")
+	fmt.Printf("	EFI Signing Time: %s\n", sig.Time.Format())
+	fmt.Println("	WINCertificate Info")
+	fmt.Println("		Header:")
+	fmt.Printf("			Length %d\n", sig.AuthInfo.Header.Length)
+	fmt.Printf("			Revision: 0x%x (should be 0x200) \n", sig.AuthInfo.Header.Revision)
+	fmt.Printf("			CertType: %s\n", signature.WINCertTypeString[sig.AuthInfo.Header.CertType])
+	fmt.Printf("		Certificate Type: ")
+	switch sig.AuthInfo.CertType {
+	case signature.EFI_CERT_TYPE_RSA2048_SHA256_GUID:
+		fmt.Println("RSA2048 SHA256")
+	case signature.EFI_CERT_TYPE_PKCS7_GUID:
+		fmt.Println("PKCS7")
+	}
+	// pkcs7.ParseSignature(sig.AuthInfo.CertData)
+	// l, err := moz.Parse(sig.AuthInfo.CertData)
+	// if err != nil {
+	// 	log.Fatal(err)
+	// }
+
+	// fmt.Printf("%+v", l)
+
+	// err := ioutil.WriteFile("test.bin", sig.AuthInfo.CertData, 0644)
+	// if err != nil {
+	// 	log.Fatal(err)
+	// }
+}
+
 func ParseEFIAuthVariable(filename string) {
 	b, _ := ioutil.ReadFile(filename)
 	reader := bytes.NewReader(b)
 	// Fetch the signature
-	_ = signature.ReadEFIVariableAuthencation2(reader)
+	sig := signature.ReadEFIVariableAuthencation2(reader)
+	FormatEFIVariableAuth2(sig)
 	siglist := signature.ReadSignatureLists(reader)
 	FormatSignatureList(siglist)
 }
@@ -119,7 +135,7 @@ func main() {
 	file := os.Args[2]
 
 	switch efiType {
-	case "KEK", "PK", "db":
+	case "KEK", "PK", "db", "dbx":
 		ParseKeyDb(file)
 	case "siglist":
 		ParseSignatureList(file)
