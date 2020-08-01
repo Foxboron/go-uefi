@@ -73,46 +73,43 @@ func GetSecureBoot() bool {
 	return false
 }
 
-func GetPK() error {
+func GetPK() ([]*signature.SignatureList, error) {
 	efivar := "PK"
 	s, err := attributes.ReadEfivars(efivar)
 	if err != nil {
 		log.Fatal(err)
 	}
 	if (ValidAttributes[efivar] & s.Attributes) != ValidAttributes[efivar] {
-		return fmt.Errorf("invalid bitmask")
+		return nil, fmt.Errorf("invalid bitmask")
 	}
-	f := bytes.NewReader(s.Data)
-	signature.ReadSignatureLists(f)
-	return nil
+	siglist := signature.ReadSignatureLists(bytes.NewReader(s.Data))
+	return siglist, nil
 }
 
-func GetKEK() error {
+func GetKEK() ([]*signature.SignatureList, error) {
 	efivar := "KEK"
 	s, err := attributes.ReadEfivars(efivar)
 	if err != nil {
 		log.Fatal(err)
 	}
 	if (ValidAttributes[efivar] & s.Attributes) != ValidAttributes[efivar] {
-		return fmt.Errorf("invalid bitmask")
+		return nil, fmt.Errorf("invalid bitmask")
 	}
-	f := bytes.NewReader(s.Data)
-	signature.ReadSignatureLists(f)
-	return nil
+	siglist := signature.ReadSignatureLists(bytes.NewReader(s.Data))
+	return siglist, nil
 }
 
-func Getdb() error {
+func Getdb() ([]*signature.SignatureList, error) {
 	efivar := "db"
 	s, err := attributes.ReadEfivars(efivar)
 	if err != nil {
 		log.Fatal(err)
 	}
 	if (ValidAttributes[efivar] & s.Attributes) != ValidAttributes[efivar] {
-		return fmt.Errorf("invalid bitmask")
+		return nil, fmt.Errorf("invalid bitmask")
 	}
-	f := bytes.NewReader(s.Data)
-	signature.ReadSignatureLists(f)
-	return nil
+	siglist := signature.ReadSignatureLists(bytes.NewReader(s.Data))
+	return siglist, nil
 }
 
 func SignEFIVariable(key *rsa.PrivateKey, cert *x509.Certificate, varname string, siglist []byte) []byte {
