@@ -1,7 +1,6 @@
 package main
 
 import (
-	"bytes"
 	"flag"
 	"fmt"
 	"io/ioutil"
@@ -9,8 +8,7 @@ import (
 	"os"
 
 	"github.com/foxboron/goefi/efi"
-	"github.com/foxboron/goefi/efi/attributes"
-	"github.com/foxboron/goefi/efi/signature"
+	"github.com/foxboron/goefi/efi/util"
 )
 
 func main() {
@@ -31,23 +29,9 @@ func main() {
 		log.Fatal(err)
 	}
 
-	attrs := efi.ValidAttributes[*variable]
-	attrs |= attributes.EFI_VARIABLE_APPEND_WRITE
+	buf := efi.SignEFIVariable(util.ReadKey(*key), util.ReadCert(*cert), *variable, b)
 
-	ctx := &signature.SigningContext{
-		Cert:    util.ReadCert(*cert),
-		Key:     util.ReadKey(*key),
-		Varname: []byte(*variable),
-		Guid:    attributes.EFI_GLOBAL_VARIABLE,
-		Attr:    attrs,
-		Data:    b,
-	}
-	signedVariable := signature.NewSignedEFIVariable(ctx)
-
-	buf := new(bytes.Buffer)
-	signature.WriteEFIVariableAuthencation2(buf, *signedVariable)
-	buf.Write(b)
-	err = ioutil.WriteFile(args[1], buf.Bytes(), 0644)
+	err = ioutil.WriteFile(args[1], buf, 0644)
 	if err != nil {
 		log.Fatal(err)
 	}
