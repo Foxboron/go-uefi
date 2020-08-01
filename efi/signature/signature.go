@@ -144,6 +144,12 @@ func WriteSignatureList(b *bytes.Buffer, s SignatureList) {
 	}
 }
 
+func WriteSignatureLists(b *bytes.Buffer, siglist []*SignatureList) {
+	for _, l := range siglist {
+		WriteSignatureList(b, *l)
+	}
+}
+
 func ReadSignatureList(f *bytes.Reader) *SignatureList {
 	s := SignatureList{}
 	for _, i := range []interface{}{&s.SignatureType, &s.ListSize, &s.HeaderSize, &s.Size} {
@@ -158,7 +164,8 @@ func ReadSignatureList(f *bytes.Reader) *SignatureList {
 	// lets us figure out how much signature data we should read
 	totalSize := s.ListSize - SizeofSignatureList
 
-	sig, _ := ValidEFISignatureSchemes[s.SignatureType]
+	// fmt.Println(s.SignatureType.Format())
+	sig := ValidEFISignatureSchemes[s.SignatureType]
 	// Anonymous function because I really can't figure out a better name for it
 	parseList := func(data []SignatureData, size uint32) []SignatureData {
 		for {
