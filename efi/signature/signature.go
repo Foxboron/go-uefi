@@ -105,7 +105,7 @@ type SignatureList struct {
 	SignatureType   util.EFIGUID
 	ListSize        uint32          // Total size of the signature list, including this header
 	HeaderSize      uint32          // Size of SignatureHead
-	Size            uint32          // Size of each signature. Atleast the size of EFI_SIGNATURE_DATA
+	Size            uint32          // Size of each signature. At least the size of EFI_SIGNATURE_DATA
 	SignatureHeader []uint8         // SignatureType defines the content of this header
 	Signatures      []SignatureData // SignatureData List
 }

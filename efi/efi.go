@@ -39,7 +39,7 @@ var ValidAttributes = map[string]attributes.Attributes{
 		attributes.EFI_VARIABLE_TIME_BASED_AUTHENTICATED_WRITE_ACCESS,
 }
 
-func GetBoorOrder() []string {
+func GetBootOrder() []string {
 	ret := []string{}
 	s, _ := attributes.ReadEfivars("BootOrder")
 	for i := 0; i < len(s.Data); i += 2 {
