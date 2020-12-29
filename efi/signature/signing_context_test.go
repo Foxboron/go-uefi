@@ -16,7 +16,7 @@ func ReadCert(path string) *x509.Certificate {
 	}
 	block, _ := pem.Decode(b)
 	if block == nil {
-		panic("failed to parsePEM block containg the public key!")
+		panic("failed to parsePEM block containing the public key!")
 	}
 
 	cert, err := x509.ParseCertificate(block.Bytes)

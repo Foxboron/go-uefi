@@ -15,7 +15,7 @@ func ReadKey(path string) *rsa.PrivateKey {
 	}
 	block, _ := pem.Decode(b)
 	if block == nil {
-		panic("failed to parsePEM block containg the public key!")
+		panic("failed to parsePEM block containing the public key!")
 	}
 	priv, err := x509.ParsePKCS8PrivateKey(block.Bytes)
 	if err != nil {
@@ -36,7 +36,7 @@ func ReadCert(path string) *x509.Certificate {
 	}
 	block, _ := pem.Decode(b)
 	if block == nil {
-		panic("failed to parsePEM block containg the public key!")
+		panic("failed to parsePEM block containing the public key!")
 	}
 
 	cert, err := x509.ParseCertificate(block.Bytes)
