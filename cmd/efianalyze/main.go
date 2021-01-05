@@ -10,10 +10,10 @@ import (
 	"log"
 	"os"
 
-	"github.com/foxboron/goefi/efi/attributes"
-	"github.com/foxboron/goefi/efi/pecoff"
-	"github.com/foxboron/goefi/efi/pkcs7"
-	"github.com/foxboron/goefi/efi/signature"
+	"github.com/foxboron/go-uefi/efi/attributes"
+	"github.com/foxboron/go-uefi/efi/pecoff"
+	"github.com/foxboron/go-uefi/efi/pkcs7"
+	"github.com/foxboron/go-uefi/efi/signature"
 )
 
 func FormatSignatureList(siglist []*signature.SignatureList) {

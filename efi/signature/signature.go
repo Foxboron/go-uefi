@@ -5,7 +5,7 @@ import (
 	"encoding/binary"
 	"log"
 
-	"github.com/foxboron/goefi/efi/util"
+	"github.com/foxboron/go-uefi/efi/util"
 )
 
 // Section 32.4.1 Signature Database

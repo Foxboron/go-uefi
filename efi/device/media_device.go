@@ -6,7 +6,7 @@ import (
 	"fmt"
 	"log"
 
-	"github.com/foxboron/goefi/efi/util"
+	"github.com/foxboron/go-uefi/efi/util"
 )
 
 // Subtypes of Media Device

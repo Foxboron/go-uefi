@@ -6,7 +6,7 @@ import (
 	"log"
 	"testing"
 
-	"github.com/foxboron/goefi/efi/attributes"
+	"github.com/foxboron/go-uefi/efi/attributes"
 )
 
 func TestAbs(t *testing.T) {

@@ -4,7 +4,7 @@ import (
 	"os"
 	"testing"
 
-	"github.com/foxboron/goefi/tests/utils"
+	"github.com/foxboron/go-uefi/tests/utils"
 )
 
 var vm *utils.TestVM

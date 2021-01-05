@@ -10,11 +10,11 @@ import (
 	"fmt"
 	"log"
 
-	"github.com/foxboron/goefi/efi/attributes"
-	"github.com/foxboron/goefi/efi/device"
-	"github.com/foxboron/goefi/efi/pecoff"
-	"github.com/foxboron/goefi/efi/signature"
-	"github.com/foxboron/goefi/efi/util"
+	"github.com/foxboron/go-uefi/efi/attributes"
+	"github.com/foxboron/go-uefi/efi/device"
+	"github.com/foxboron/go-uefi/efi/pecoff"
+	"github.com/foxboron/go-uefi/efi/signature"
+	"github.com/foxboron/go-uefi/efi/util"
 )
 
 // Keeps track of expected attributes for each variable

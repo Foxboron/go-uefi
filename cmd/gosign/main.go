@@ -7,8 +7,8 @@ import (
 	"log"
 	"os"
 
-	"github.com/foxboron/goefi/efi/pecoff"
-	"github.com/foxboron/goefi/efi/util"
+	"github.com/foxboron/go-uefi/efi/pecoff"
+	"github.com/foxboron/go-uefi/efi/util"
 )
 
 func main() {

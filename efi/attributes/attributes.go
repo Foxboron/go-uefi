@@ -8,7 +8,7 @@ import (
 	"os"
 	"path"
 
-	"github.com/foxboron/goefi/efi/util"
+	"github.com/foxboron/go-uefi/efi/util"
 )
 
 // Section 8.2 Variable Services

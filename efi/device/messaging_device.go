@@ -5,7 +5,7 @@ import (
 	"encoding/binary"
 	"log"
 
-	"github.com/foxboron/goefi/efi/util"
+	"github.com/foxboron/go-uefi/efi/util"
 )
 
 // Subtypes of Messaging Device Path

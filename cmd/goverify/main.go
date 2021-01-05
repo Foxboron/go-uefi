@@ -8,10 +8,10 @@ import (
 	"log"
 	"os"
 
-	"github.com/foxboron/goefi/efi/pecoff"
-	"github.com/foxboron/goefi/efi/pkcs7"
-	"github.com/foxboron/goefi/efi/signature"
-	"github.com/foxboron/goefi/efi/util"
+	"github.com/foxboron/go-uefi/efi/pecoff"
+	"github.com/foxboron/go-uefi/efi/pkcs7"
+	"github.com/foxboron/go-uefi/efi/signature"
+	"github.com/foxboron/go-uefi/efi/util"
 )
 
 //"github.com/sassoftware/relic/lib/authenticode"

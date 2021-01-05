@@ -3,7 +3,7 @@ package main
 import (
 	"testing"
 
-	"github.com/foxboron/goefi/efi/attributes"
+	"github.com/foxboron/go-uefi/efi/attributes"
 )
 
 func TestReadSetupMode(t *testing.T) {

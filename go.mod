@@ -1,4 +1,4 @@
-module github.com/foxboron/goefi
+module github.com/foxboron/go-uefi
 
 go 1.14
 

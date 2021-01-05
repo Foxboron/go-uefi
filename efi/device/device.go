@@ -5,8 +5,8 @@ import (
 	"encoding/binary"
 	"log"
 
-	"github.com/foxboron/goefi/efi/attributes"
-	"github.com/foxboron/goefi/efi/util"
+	"github.com/foxboron/go-uefi/efi/attributes"
+	"github.com/foxboron/go-uefi/efi/util"
 )
 
 //  Section 3.1.3 Load Options

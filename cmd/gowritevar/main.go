@@ -6,7 +6,7 @@ import (
 	"log"
 	"os"
 
-	"github.com/foxboron/goefi/efi"
+	"github.com/foxboron/go-uefi/efi"
 )
 
 func main() {

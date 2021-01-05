@@ -6,8 +6,8 @@ import (
 	"encoding/binary"
 	"log"
 
-	"github.com/foxboron/goefi/efi/pkcs7"
-	"github.com/foxboron/goefi/efi/signature"
+	"github.com/foxboron/go-uefi/efi/pkcs7"
+	"github.com/foxboron/go-uefi/efi/signature"
 )
 
 // TODO: This probably doesn't work when there are other signatures present

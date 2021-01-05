@@ -7,9 +7,9 @@ import (
 	"encoding/binary"
 	"log"
 
-	"github.com/foxboron/goefi/efi/attributes"
-	"github.com/foxboron/goefi/efi/pkcs7"
-	"github.com/foxboron/goefi/efi/util"
+	"github.com/foxboron/go-uefi/efi/attributes"
+	"github.com/foxboron/go-uefi/efi/pkcs7"
+	"github.com/foxboron/go-uefi/efi/util"
 )
 
 // Handles the values we use for EFI Variable signatures
