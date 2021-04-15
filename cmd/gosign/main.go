@@ -28,18 +28,15 @@ func main() {
 	if err != nil {
 		log.Fatal(err)
 	}
-	ctx := pecoff.PECOFFChecksum(peFile)
 
+	ctx := pecoff.PECOFFChecksum(peFile)
 	ctx.Cert = util.ReadCert(*cert)
 	ctx.Key = util.ReadKey(*key)
 
-	b := pecoff.SignPECOFF(ctx)
+	sig := pecoff.CreateSignature(ctx)
 
-	// Debug so we can fetch the checksummed bytes
-	//ioutil.WriteFile("something.bin", ctx.SigData.Bytes(), 0644)
-
-	err = ioutil.WriteFile(args[1], b, 0644)
-	if err != nil {
+	b := pecoff.AppendToBinary(ctx, sig)
+	if err = ioutil.WriteFile(args[1], b, 0644); err != nil {
 		log.Fatal(err)
 	}
 }

@@ -99,6 +99,12 @@ func PECOFFChecksum(peFile []byte) *PECOFFSigningContext {
 		hashBuffer.Write(peFile[sectionEnd:])
 	}
 
+	// Tianocore demands that we pad to 8 bytes
+	// They also need to be added to the checksum file
+	paddingBytes, _ := PaddingBytes(len(peFile), 8)
+	peFile = append(peFile, paddingBytes...)
+	hashBuffer.Write(paddingBytes)
+
 	return &PECOFFSigningContext{
 		PEFile:       peFile,
 		SigData:      hashBuffer,
