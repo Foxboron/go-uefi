@@ -9,6 +9,7 @@ import (
 	"crypto/x509"
 	"crypto/x509/pkix"
 	"encoding/asn1"
+	"errors"
 	"log"
 	"math/big"
 	"time"
@@ -301,20 +302,25 @@ func SignData(ctx *SigningContext) []byte {
 
 func ParseSignature(buf []byte) *SignedData {
 	var payload SignedData
-	_, err := asn1.Unmarshal(buf, &payload)
-	if err != nil {
+	if _, err := asn1.Unmarshal(buf, &payload); err != nil {
 		log.Fatal(err)
 	}
 	return &payload
 }
 
-func VerifySignature(cert *x509.Certificate, buf []byte) bool {
+func VerifySignature(cert *x509.Certificate, buf []byte) (bool, error) {
 	payload := ParseSignature(buf)
 	for _, si := range payload.Content.SignerInfos {
 		sigData := MarshalAttributes(si.AuthenticatedAttributes)
-		if err := cert.CheckSignature(x509.SHA256WithRSA, sigData, si.EncryptedDigest); err != nil {
-			return false
+		err := cert.CheckSignature(x509.SHA256WithRSA, sigData, si.EncryptedDigest)
+		if errors.Is(err, rsa.ErrVerification) {
+			continue
+		} else if errors.Is(err, rsa.ErrDecryption) {
+			continue
+		} else if err != nil {
+			return false, err
 		}
+		return true, nil
 	}
-	return true
+	return false, nil
 }
