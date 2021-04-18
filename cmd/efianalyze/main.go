@@ -91,25 +91,34 @@ func ParseEFIAuthVariable(filename string) {
 	b, _ := ioutil.ReadFile(filename)
 	reader := bytes.NewReader(b)
 	// Fetch the signature
-	sig := signature.ReadEFIVariableAuthencation2(reader)
+	sig, err := signature.ReadEFIVariableAuthencation2(reader)
+	if err != nil {
+		log.Fatal(err)
+	}
 	FormatEFIVariableAuth2(sig)
 	siglist := signature.ReadSignatureLists(reader)
 	FormatSignatureList(siglist)
 }
 
 func ParseEFIImage(filename string) {
-	b, _ := ioutil.ReadFile(filename)
-	datadir, sigbuf := pecoff.GetSignatures(b)
-	reader := bytes.NewReader(sigbuf)
+	b, err := ioutil.ReadFile(filename)
+	if err != nil {
+		log.Fatal(err)
+		os.Exit(1)
+	}
+	datadir, err := pecoff.GetSignatureDataDirectory(b)
+	if err != nil {
+		log.Fatal(err)
+		os.Exit(1)
+	}
 	fmt.Println("Data Directory Header:")
 	fmt.Printf("	Virtual Address: 0x%x\n", datadir.VirtualAddress)
 	fmt.Printf("	Size in bytes: %d\n", datadir.Size)
 	if datadir.Size == 0 {
 		fmt.Println("No signatures")
-		os.Exit(1)
 	}
-	for {
-		sig := signature.ReadWinCertificate(reader)
+	signatures, err := pecoff.GetSignatures(b)
+	for _, sig := range signatures {
 		fmt.Printf("Certificate Type: %s\n", signature.WINCertTypeString[sig.CertType])
 		c := pkcs7.ParseSignature(sig.Certificate)
 		for _, si := range c.Content.SignerInfos {
@@ -117,9 +126,6 @@ func ParseEFIImage(filename string) {
 			asn1.Unmarshal(si.IssuerAndSerialNumber.IssuerName.FullBytes, &issuer)
 			fmt.Printf("	Issuer Name: %s\n", issuer.String())
 			fmt.Printf("	Serial Number: %s\n", si.IssuerAndSerialNumber.SerialNumber)
-		}
-		if reader.Len() < signature.SizeofWINCertificate {
-			break
 		}
 	}
 }
