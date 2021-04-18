@@ -6,6 +6,7 @@ import (
 	"log"
 
 	"github.com/foxboron/go-uefi/efi/util"
+	"github.com/pkg/errors"
 )
 
 // Section 32.2.4 Code Defintiions
@@ -43,22 +44,24 @@ type WINCertificate struct {
 
 const SizeofWINCertificate = 4 + 2 + 2
 
-func ReadWinCertificate(f *bytes.Reader) WINCertificate {
+var ErrParse = errors.New("could not parse struct")
+
+func ReadWinCertificate(f *bytes.Reader) (WINCertificate, error) {
 	var cert WINCertificate
 	for _, v := range []interface{}{&cert.Length, &cert.Revision, &cert.CertType} {
 		if err := binary.Read(f, binary.LittleEndian, v); err != nil {
-			log.Fatal(err)
+			return WINCertificate{}, errors.Wrapf(err, "could not parse WINCertificate")
 		}
 	}
 	if cert.Revision != WIN_CERTIFICATE_REVISION {
-		log.Fatalf("WINCertificate revision should be %x, but is %x. Malformed or invalid", WIN_CERTIFICATE_REVISION, cert.Revision)
+		return WINCertificate{}, errors.Wrapf(ErrParse, "WINCertificate revision should be %x, but is %x. Malformed or invalid", WIN_CERTIFICATE_REVISION, cert.Revision)
 	}
 	certLength := make([]byte, cert.Length-SizeofWINCertificate)
 	if err := binary.Read(f, binary.LittleEndian, certLength); err != nil {
-		log.Fatal(err)
+		return WINCertificate{}, errors.Wrapf(err, "could not get signature data")
 	}
 	cert.Certificate = certLength[:]
-	return cert
+	return cert, nil
 }
 
 func WriteWinCertificate(b *bytes.Buffer, w *WINCertificate) {
@@ -84,9 +87,13 @@ type WinCertificateUEFIGUID struct {
 
 const SizeofWinCertificateUEFIGUID = SizeofWINCertificate + 16
 
-func ReadWinCertificateUEFIGUID(f *bytes.Reader) WinCertificateUEFIGUID {
+func ReadWinCertificateUEFIGUID(f *bytes.Reader) (WinCertificateUEFIGUID, error) {
 	var cert WinCertificateUEFIGUID
-	cert.Header = ReadWinCertificate(f)
+	hdr, err := ReadWinCertificate(f)
+	if err != nil {
+		return WinCertificateUEFIGUID{}, errors.Wrap(err, "could not parse WINCert UEFI_GUID")
+	}
+	cert.Header = hdr
 	reader := bytes.NewBuffer(cert.Header.Certificate)
 	if err := binary.Read(reader, binary.LittleEndian, &cert.CertType); err != nil {
 		log.Fatal(err)
@@ -96,7 +103,7 @@ func ReadWinCertificateUEFIGUID(f *bytes.Reader) WinCertificateUEFIGUID {
 		log.Fatal(err)
 	}
 	cert.CertData = rbuf[:]
-	return cert
+	return cert, nil
 }
 
 func WriteWinCertificateUEFIGUID(b *bytes.Buffer, w *WinCertificateUEFIGUID) {
@@ -141,16 +148,20 @@ func NewEFIVariableAuthentication2() *EFIVariableAuthentication2 {
 	}
 }
 
-func ReadEFIVariableAuthencation2(f *bytes.Reader) *EFIVariableAuthentication2 {
+func ReadEFIVariableAuthencation2(f *bytes.Reader) (*EFIVariableAuthentication2, error) {
 	var efi EFIVariableAuthentication2
 	if err := binary.Read(f, binary.LittleEndian, &efi.Time); err != nil {
 		log.Fatal(err)
 	}
-	efi.AuthInfo = ReadWinCertificateUEFIGUID(f)
+	authinfo, err := ReadWinCertificateUEFIGUID(f)
+	if err != nil {
+		return &EFIVariableAuthentication2{}, errors.Wrap(err, "could not parse WINCertificate UEFI_GUID")
+	}
+	efi.AuthInfo = authinfo
 	if efi.AuthInfo.Header.CertType != WIN_CERT_TYPE_EFI_GUID {
 		log.Fatalf("EFI_VARIABLE_AUTHENTICATION2 accepts only CertType WIN_CERT_TYPE_EFI_GUID. Got: %x", efi.AuthInfo.CertType)
 	}
-	return &efi
+	return &efi, nil
 }
 
 func WriteEFIVariableAuthencation2(b *bytes.Buffer, e EFIVariableAuthentication2) {
