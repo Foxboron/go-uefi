@@ -1,7 +1,6 @@
 package main
 
 import (
-	"bytes"
 	"flag"
 	"fmt"
 	"io/ioutil"
@@ -10,7 +9,6 @@ import (
 
 	"github.com/foxboron/go-uefi/efi/pecoff"
 	"github.com/foxboron/go-uefi/efi/pkcs7"
-	"github.com/foxboron/go-uefi/efi/signature"
 	"github.com/foxboron/go-uefi/efi/util"
 )
 
@@ -32,18 +30,16 @@ func main() {
 		log.Fatal(err)
 	}
 	x509Cert := util.ReadCert(*cert)
-	b := pecoff.GetSignatures(peFile)
-	reader := bytes.NewReader(b)
-	var sigs []*signature.WINCertificate
-	for {
-		sig := signature.ReadWinCertificate(reader)
-		sigs = append(sigs, &sig)
-		if reader.Len() < signature.SizeofWINCertificate {
-			break
-		}
+	sigs, err := pecoff.GetSignatures(peFile)
+	if err != nil {
+		log.Fatal(err)
+	}
+	if len(sigs) == 0 {
+		fmt.Println("No signatures")
+		os.Exit(1)
 	}
 	for _, signature := range sigs {
-		if !pkcs7.VerifySignature(x509Cert, signature.Certificate) {
+		if ok, _ := pkcs7.VerifySignature(x509Cert, signature.Certificate); !ok {
 			fmt.Println("Invalid signature!")
 			os.Exit(1)
 		}
