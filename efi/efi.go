@@ -147,7 +147,8 @@ func SignEFIExecutable(key *rsa.PrivateKey, cert *x509.Certificate, file []byte)
 	ctx := pecoff.PECOFFChecksum(file)
 	ctx.Cert = cert
 	ctx.Key = key
-	b := pecoff.SignPECOFF(ctx)
+	sig := pecoff.CreateSignature(ctx)
+	b := pecoff.AppendToBinary(ctx, sig)
 	return b
 }
 
