@@ -4,10 +4,10 @@ import (
 	"bytes"
 	"debug/pe"
 	"encoding/binary"
-	"log"
 
 	"github.com/foxboron/go-uefi/efi/pkcs7"
 	"github.com/foxboron/go-uefi/efi/signature"
+	"github.com/pkg/errors"
 )
 
 func CreateSignature(ctx *PECOFFSigningContext) []byte {
@@ -75,16 +75,25 @@ func AppendToBinary(PEFile *PECOFFSigningContext, sig []byte) []byte {
 	return pefile
 }
 
-func GetSignatures(peFile []byte) (*pe.DataDirectory, []byte) {
-	buf := bytes.NewReader(peFile)
+// TODO: Need 32 bit support
+func GetSignatureDataDirectory(pefile []byte) (*pe.DataDirectory, error) {
+	buf := bytes.NewReader(pefile)
 	f, err := pe.NewFile(buf)
 	if err != nil {
-		log.Fatal(err)
+		return nil, errors.Wrapf(err, "could parse PE file")
 	}
-	datadir := f.OptionalHeader.(*pe.OptionalHeader64).DataDirectory[4]
+	return &f.OptionalHeader.(*pe.OptionalHeader64).DataDirectory[4], nil
+}
+
+// This fetches the attached signature data
+func GetSignatureBytesFromFile(pefile []byte) ([]byte, error) {
+	datadir, err := GetSignatureDataDirectory(pefile)
+	if err != nil {
+		return nil, errors.Wrapf(err, "could not get datadirectory")
+	}
 	addr := datadir.VirtualAddress
 	certSize := datadir.Size
-	return &datadir, peFile[addr : addr+certSize]
+	return pefile[addr : addr+certSize], nil
 }
 
 func PaddingBytes(srcLen, blockSize int) ([]byte, int) {
