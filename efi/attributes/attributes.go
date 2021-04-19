@@ -8,6 +8,8 @@ import (
 	"os"
 	"path"
 
+	"github.com/pkg/errors"
+
 	"github.com/foxboron/go-uefi/efi/util"
 )
 
@@ -69,7 +71,7 @@ func ParseEfivars(f *os.File) (*EfiVariable, error) {
 	}
 	stat, err := f.Stat()
 	if err != nil {
-		return &EfiVariable{}, nil
+		return &EfiVariable{}, errors.Wrap(err, "could not find file")
 	}
 	buf := make([]byte, stat.Size()-4)
 	if err = binary.Read(f, binary.LittleEndian, &buf); err != nil {
@@ -97,6 +99,7 @@ func ReadEfivarsFile(filename string) (*EfiVariable, error) {
 	if err != nil {
 		return &EfiVariable{}, err
 	}
+	defer f.Close()
 	return ParseEfivars(f)
 }
 
@@ -111,18 +114,14 @@ func WriteEfivars(name string, attrs Attributes, b []byte) error {
 	if err != nil {
 		log.Fatal(err)
 	}
+	defer fil.Close()
 	attrBuf := new(bytes.Buffer)
 	binary.Write(attrBuf, binary.LittleEndian, attrs)
 	buf := append(attrBuf.Bytes(), b...)
-	n, err := fil.Write(buf)
-	if err != nil {
-		log.Fatal(err)
-	}
-	if n != len(buf) {
-		log.Fatal("Did not write the complete buffer")
-	}
-	if err := fil.Close(); err != nil {
-		log.Fatal(err)
+	if n, err := fil.Write(buf); err != nil {
+		return err
+	} else if n != len(buf) {
+		return errors.New("could not write the entire buffer")
 	}
 	return nil
 }
