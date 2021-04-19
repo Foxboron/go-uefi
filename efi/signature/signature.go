@@ -62,12 +62,16 @@ const (
 // Section 3.3 - Globally Defined Variables
 // Array of GUIDs representing the type of signatures supported by
 // the platform firmware. Should be treated as read-only
-func GetSupportedSignatures(f *bytes.Reader) []util.EFIGUID {
-	supportedSigs := make([]util.EFIGUID, f.Len()/16)
+func GetSupportedSignatures(f io.Reader) ([]util.EFIGUID, error) {
+	// This is a bit bad. But io.Reader is *probably nicer* but we need to know
+	// the length in a better way.
+	buf := new(bytes.Buffer)
+	buf.ReadFrom(f)
+	supportedSigs := make([]util.EFIGUID, buf.Len()/16)
 	if err := binary.Read(f, binary.LittleEndian, &supportedSigs); err != nil {
-		log.Fatal(err)
+		return nil, errors.Wrapf(err, "could not parse EFIGUIDs from this reader")
 	}
-	return supportedSigs
+	return supportedSigs, nil
 }
 
 // Section 32.4.1 - Signature Database
