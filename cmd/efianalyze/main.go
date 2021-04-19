@@ -127,6 +127,9 @@ func ParseEFIImage(filename string) {
 		fmt.Println("No signatures")
 	}
 	signatures, err := pecoff.GetSignatures(b)
+	if err != nil {
+		log.Fatal(err)
+	}
 	for _, sig := range signatures {
 		fmt.Printf("Certificate Type: %s\n", signature.WINCertTypeString[sig.CertType])
 		c := pkcs7.ParseSignature(sig.Certificate)
