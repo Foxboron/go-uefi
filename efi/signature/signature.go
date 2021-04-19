@@ -3,9 +3,11 @@ package signature
 import (
 	"bytes"
 	"encoding/binary"
+	"io"
 	"log"
 
 	"github.com/foxboron/go-uefi/efi/util"
+	"github.com/pkg/errors"
 )
 
 // Section 32.4.1 Signature Database
@@ -81,20 +83,20 @@ type SignatureData struct {
 	Data  []uint8
 }
 
-func ReadSignatureData(f *bytes.Reader, size uint32) *SignatureData {
+func ReadSignatureData(f io.Reader, size uint32) (*SignatureData, error) {
 	s := SignatureData{}
 	if err := binary.Read(f, binary.LittleEndian, &s.Owner); err != nil {
-		log.Fatalf("Couldn't read Signature Data: %s", err)
+		return &SignatureData{}, errors.Wrapf(err, "could not read Signature Data")
 	}
 	data := make([]uint8, size-16) // Subtract the size of Owner
 	if err := binary.Read(f, binary.LittleEndian, &data); err != nil {
-		log.Fatalf("Couldn't read Signature Data: %s", err)
+		return &SignatureData{}, errors.Wrapf(err, "Couldn't read Signature Data")
 	}
 	s.Data = data[:]
-	return &s
+	return &s, nil
 }
 
-func WriteSignatureData(b *bytes.Buffer, s SignatureData) {
+func WriteSignatureData(b io.Writer, s SignatureData) {
 	for _, v := range []interface{}{s.Owner, s.Data} {
 		err := binary.Write(b, binary.LittleEndian, v)
 		if err != nil {
@@ -113,6 +115,8 @@ type SignatureList struct {
 	SignatureHeader []uint8         // SignatureType defines the content of this header
 	Signatures      []SignatureData // SignatureData List
 }
+
+type SignatureDatabase []*SignatureList
 
 // SignatureSize + sizeof(SignatureType) + sizeof(uint32)*4
 const SizeofSignatureList uint32 = 16 + 4 + 4 + 4
@@ -136,7 +140,8 @@ func NewSignatureList(data []byte, owner util.EFIGUID, certtype CertType) *Signa
 	return &sl
 }
 
-func WriteSignatureList(b *bytes.Buffer, s SignatureList) {
+// Writes a signature list
+func WriteSignatureList(b io.Writer, s SignatureList) {
 	for _, v := range []interface{}{s.SignatureType, s.ListSize, s.HeaderSize, s.Size, s.SignatureHeader} {
 		err := binary.Write(b, binary.LittleEndian, v)
 		if err != nil {
@@ -148,45 +153,55 @@ func WriteSignatureList(b *bytes.Buffer, s SignatureList) {
 	}
 }
 
-func WriteSignatureLists(b *bytes.Buffer, siglist []*SignatureList) {
-	for _, l := range siglist {
+// Write a signature database which contains a slice of SignautureLists
+func WriteSignatureDatabase(b io.Writer, sigdb SignatureDatabase) {
+	for _, l := range sigdb {
 		WriteSignatureList(b, *l)
 	}
 }
 
-func ReadSignatureList(f *bytes.Reader) *SignatureList {
+// Read an EFI_SIGNATURE_LIST from io.Reader. It will read until io.EOF.
+// io.EOF should be somewhat expected if we are trying to read multiple
+// lists as they should be either at the end of the file, or the entire file.
+func ReadSignatureList(f io.Reader) (*SignatureList, error) {
 	s := SignatureList{}
 	for _, i := range []interface{}{&s.SignatureType, &s.ListSize, &s.HeaderSize, &s.Size} {
-		if err := binary.Read(f, binary.LittleEndian, i); err != nil {
-			log.Fatalf("Couldn't read signature list: %s", err)
+		err := binary.Read(f, binary.LittleEndian, i)
+		if errors.Is(err, io.EOF) {
+			return &SignatureList{}, err
+		} else if err != nil {
+			return &SignatureList{}, errors.Wrapf(err, "couldn't read signature list")
 		}
 	}
 
 	var sigData []SignatureData
+	var err error
 
 	// The list size minus the size of the SignatureList struct
-	// lets us figure out how much signature data we should read
+	// lets us figure out how much signature data we should read.
 	totalSize := s.ListSize - SizeofSignatureList
 
-	// fmt.Println(s.SignatureType.Format())
 	sig := ValidEFISignatureSchemes[s.SignatureType]
 	// Anonymous function because I really can't figure out a better name for it
-	parseList := func(data []SignatureData, size uint32) []SignatureData {
+	parseList := func(data []SignatureData, size uint32) ([]SignatureData, error) {
 		for {
 			if totalSize == 0 {
-				break
+				return data, nil
 			}
-			data = append(data, *ReadSignatureData(f, size))
+			sigdata, err := ReadSignatureData(f, size)
+			if err != nil {
+				return nil, err
+			}
+			data = append(data, *sigdata)
 			totalSize -= s.Size
 		}
-		return data
 	}
 	switch sig {
 	case "X509":
 		if s.HeaderSize != 0 {
 			log.Fatalf("Unexpected HeaderSize for x509 cert. Should be 0!")
 		}
-		sigData = parseList(sigData, s.Size)
+		sigData, err = parseList(sigData, s.Size)
 	case "SHA256":
 		if s.HeaderSize != 0 {
 			log.Fatalf("Unexpected HeaderSize for SHA256. Should be 0!")
@@ -194,23 +209,29 @@ func ReadSignatureList(f *bytes.Reader) *SignatureList {
 		if s.Size != 48 {
 			log.Fatalf("Unexpected signature size for SHA256. Should be 16+32!")
 		}
-		sigData = parseList(sigData, s.Size)
+		sigData, err = parseList(sigData, s.Size)
 	default:
 		log.Fatalf("Not implemented signature list certificate: %s", sig)
 	}
+	if err != nil {
+		return &SignatureList{}, err
+	}
 	s.Signatures = sigData
-	return &s
+	return &s, nil
 }
 
-// Reads several signature lists from a bytes Reader
-// TODO: Needs a better name
-func ReadSignatureLists(f *bytes.Reader) []*SignatureList {
+// Reads several signature lists from a io.Reader. It assumes io.EOF means there
+// are no more signatures to read as opposed to an actual issue
+func ReadSignatureDatabase(f io.Reader) ([]*SignatureList, error) {
 	siglist := []*SignatureList{}
 	for {
-		if f.Len() == 0 {
+		sig, err := ReadSignatureList(f)
+		if errors.Is(err, io.EOF) {
 			break
+		} else if err != nil {
+			return siglist, errors.Wrapf(err, "failed to parse signature lists")
 		}
-		siglist = append(siglist, ReadSignatureList(f))
+		siglist = append(siglist, sig)
 	}
-	return siglist
+	return siglist, nil
 }
