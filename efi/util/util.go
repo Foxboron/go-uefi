@@ -21,14 +21,3 @@ func ReadNullString(f *bytes.Reader) []byte {
 	}
 	return ret
 }
-
-type contentInfo struct {
-	ContentType asn1.ObjectIdentifier
-	Content     asn1.RawValue `asn1:"explicit,optional,tag:0"`
-}
-
-func PatchASN1(b []byte) []byte {
-	// var c contentInfo
-	// asn1.Unmarshal(b, &c)
-	return b[19:]
-}
