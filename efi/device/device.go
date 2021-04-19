@@ -3,6 +3,7 @@ package device
 import (
 	"bytes"
 	"encoding/binary"
+	"io"
 	"log"
 
 	"github.com/foxboron/go-uefi/efi/attributes"
@@ -60,7 +61,7 @@ func (e EFIDevicePath) Format() string {
 	return "No format"
 }
 
-func ParseDevicePath(f *bytes.Reader) []*EFIDevicePaths {
+func ParseDevicePath(f io.Reader) []*EFIDevicePaths {
 	var ret []*EFIDevicePaths
 	for {
 		var efidevice EFIDevicePath

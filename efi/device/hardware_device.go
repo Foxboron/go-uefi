@@ -1,8 +1,8 @@
 package device
 
 import (
-	"bytes"
 	"encoding/binary"
+	"io"
 	"log"
 )
 
@@ -24,7 +24,7 @@ type PCIDevicePath struct {
 	Device   [1]byte
 }
 
-func ParseHardwareDevicePath(f *bytes.Reader, efi *EFIDevicePath) EFIDevicePaths {
+func ParseHardwareDevicePath(f io.Reader, efi *EFIDevicePath) EFIDevicePaths {
 	switch efi.SubType {
 	case HardwarePCI:
 		p := PCIDevicePath{EFIDevicePath: *efi}

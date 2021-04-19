@@ -1,8 +1,8 @@
 package device
 
 import (
-	"bytes"
 	"encoding/binary"
+	"io"
 	"log"
 
 	"github.com/foxboron/go-uefi/efi/util"
@@ -35,7 +35,7 @@ type VendorMessagingDevicePath struct {
 	Guid util.EFIGUID
 }
 
-func ParseMessagingDevicePath(f *bytes.Reader, efi *EFIDevicePath) EFIDevicePaths {
+func ParseMessagingDevicePath(f io.Reader, efi *EFIDevicePath) EFIDevicePaths {
 	switch efi.SubType {
 	case MessagingUSB:
 		u := USBMessagingDevicePath{EFIDevicePath: *efi}

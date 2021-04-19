@@ -2,11 +2,11 @@ package util
 
 import (
 	"bytes"
-	"encoding/asn1"
+	"io"
 )
 
 // Read a null terminated string
-func ReadNullString(f *bytes.Reader) []byte {
+func ReadNullString(f io.Reader) []byte {
 	var ret []byte
 	for {
 		block := make([]byte, 2)

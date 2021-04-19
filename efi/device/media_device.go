@@ -1,9 +1,9 @@
 package device
 
 import (
-	"bytes"
 	"encoding/binary"
 	"fmt"
+	"io"
 	"log"
 
 	"github.com/foxboron/go-uefi/efi/util"
@@ -61,7 +61,7 @@ type FirmwareFielMediaDevicePath struct {
 	FirmwareFileName [16]byte
 }
 
-func ParseMediaDevicePath(f *bytes.Reader, efi *EFIDevicePath) EFIDevicePaths {
+func ParseMediaDevicePath(f io.Reader, efi *EFIDevicePath) EFIDevicePaths {
 	switch efi.SubType {
 	case HardDriveDevicePath:
 		m := HardDriveMediaDevicePath{EFIDevicePath: *efi}
