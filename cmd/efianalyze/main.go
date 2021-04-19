@@ -47,14 +47,20 @@ func FormatSignatureList(siglist []*signature.SignatureList) {
 func ParseKeyDb(filename string) {
 	s, _ := attributes.ReadEfivarsFile(filename)
 	f := bytes.NewReader(s.Data)
-	siglist := signature.ReadSignatureLists(f)
+	siglist, err := signature.ReadSignatureDatabase(f)
+	if err != nil {
+		log.Fatal(err)
+	}
 	FormatSignatureList(siglist)
 }
 
 func ParseSignatureList(filename string) {
 	b, _ := ioutil.ReadFile(filename)
 	f := bytes.NewReader(b)
-	siglist := signature.ReadSignatureLists(f)
+	siglist, err := signature.ReadSignatureDatabase(f)
+	if err != nil {
+		log.Fatal(err)
+	}
 	FormatSignatureList(siglist)
 }
 
@@ -96,7 +102,10 @@ func ParseEFIAuthVariable(filename string) {
 		log.Fatal(err)
 	}
 	FormatEFIVariableAuth2(sig)
-	siglist := signature.ReadSignatureLists(reader)
+	siglist, err := signature.ReadSignatureDatabase(reader)
+	if err != nil {
+		log.Fatal(err)
+	}
 	FormatSignatureList(siglist)
 }
 

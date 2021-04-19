@@ -119,7 +119,10 @@ func Getdb() ([]*signature.SignatureList, error) {
 	if (ValidAttributes[efivar] & s.Attributes) != ValidAttributes[efivar] {
 		return nil, fmt.Errorf("invalid bitmask")
 	}
-	siglist := signature.ReadSignatureLists(bytes.NewReader(s.Data))
+	siglist, err := signature.ReadSignatureDatabase(bytes.NewReader(s.Data))
+	if err != nil {
+		return nil, errors.Wrapf(err, "can't parse database key")
+	}
 	return siglist, nil
 }
 
