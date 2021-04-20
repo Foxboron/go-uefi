@@ -20,6 +20,39 @@ type TestVM struct {
 	sess *ssh.Session
 }
 
+type TestConfig struct {
+	Shared string
+	Ovmf   string
+}
+
+func StartOVMF(conf TestConfig) *vmtest.Qemu {
+	params := []string{
+		"-machine", "type=q35,smm=on,accel=kvm",
+		"-boot", "order=c,menu=on,strict=on",
+		"-net", "none",
+		"-global", "driver=cfi.pflash01,property=secure,value=on",
+		"-global", "ICH9-LPC.disable_s3=1",
+		"-drive", "if=pflash,format=raw,unit=0,file=/usr/share/edk2-ovmf/x64/OVMF_CODE.secboot.fd,readonly",
+		"-drive", "if=pflash,format=raw,unit=1,file=ovmf/OVMF_VARS.fd",
+	}
+	if conf.Shared != "" {
+		params = append(params, "-drive", fmt.Sprintf("file=fat:rw:%s", conf.Shared))
+	}
+	opts := vmtest.QemuOptions{
+		Params:  params,
+		Verbose: false, //testing.Verbose(),
+		Timeout: 50 * time.Second,
+	}
+	// Run QEMU instance
+	ovmf, err := vmtest.NewQemu(&opts)
+	if err != nil {
+		panic(err)
+	}
+	ovmf.ConsoleExpect("Shell>")
+	return ovmf
+}
+
+// TODO: Wire this up with 9p instead of ssh
 func StartVM() *TestVM {
 	if !CopyFile("/usr/share/edk2-ovmf/x64/OVMF_VARS.fd", "OVMF_VARS.fd") {
 		panic("Could not find OVMF_CODE.secboot.fd")
