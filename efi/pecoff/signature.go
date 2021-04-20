@@ -2,25 +2,28 @@ package pecoff
 
 import (
 	"bytes"
+	"crypto/rsa"
+	"crypto/x509"
 	"debug/pe"
 	"encoding/binary"
+	"fmt"
 
 	"github.com/foxboron/go-uefi/efi/pkcs7"
 	"github.com/foxboron/go-uefi/efi/signature"
 	"github.com/pkg/errors"
 )
 
-func CreateSignature(ctx *PECOFFSigningContext) []byte {
+func CreateSignature(ctx *PECOFFSigningContext, Cert *x509.Certificate, Key *rsa.PrivateKey) []byte {
+
 	sigCtx := &pkcs7.SigningContext{
-		Cert:     ctx.Cert,
-		Key:      ctx.Key,
+		Cert:     Cert,
+		Key:      Key,
 		SigData:  ctx.SigData.Bytes(),
 		Indirect: true,
 	}
 	return pkcs7.SignData(sigCtx)
 }
 
-// TODO: This probably doesn't work when there are other signatures present
 func AppendToBinary(PEFile *PECOFFSigningContext, sig []byte) []byte {
 
 	info := signature.WINCertificate{
