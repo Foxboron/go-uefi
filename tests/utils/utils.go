@@ -18,7 +18,6 @@ import (
 type TestVM struct {
 	qemu *vmtest.Qemu
 	conn *ssh.Client
-	sess *ssh.Session
 }
 
 type TestConfig struct {
@@ -121,31 +120,25 @@ func StartVM(conf *TestConfig) *TestVM {
 		panic(err)
 	}
 
-	sess, err := conn.NewSession()
-	if err != nil {
-		panic(err)
-	}
-
-	return &TestVM{qemu, conn, sess}
+	return &TestVM{qemu, conn}
 }
 
 func (t *TestVM) Run(command string) (ret string, err error) {
-	output, err := t.sess.CombinedOutput(command)
+	sess, err := t.conn.NewSession()
+	if err != nil {
+		log.Fatal(err)
+	}
+	output, err := sess.CombinedOutput(command)
 	return string(output), err
 }
 
 func (t *TestVM) Close() {
-	t.sess.Close()
 	t.conn.Close()
 	t.qemu.Shutdown()
 }
 
 func (t *TestVM) CopyFile(path string) {
 	cmd := exec.Command("scp", "-P10022", path, "root@localhost:/")
-	if testing.Verbose() {
-		cmd.Stdout = os.Stdout
-		cmd.Stderr = os.Stderr
-	}
 	if err := cmd.Run(); err != nil {
 		log.Fatal(err)
 	}
@@ -154,7 +147,12 @@ func (t *TestVM) CopyFile(path string) {
 func (tvm *TestVM) RunTest(path string) func(t *testing.T) {
 	return func(t *testing.T) {
 		testName := fmt.Sprintf("%s%s", filepath.Base(path), ".test")
-		if err := exec.Command("go", "test", "-o", testName, "-c", path).Run(); err != nil {
+		cmd := exec.Command("go", "test", "-o", testName, "-c", path)
+		if testing.Verbose() {
+			cmd.Stdout = os.Stdout
+			cmd.Stderr = os.Stderr
+		}
+		if err := cmd.Run(); err != nil {
 			t.Fail()
 		}
 		tvm.CopyFile(testName)
@@ -162,7 +160,7 @@ func (tvm *TestVM) RunTest(path string) func(t *testing.T) {
 		ret, err := tvm.Run(fmt.Sprintf("/%s -test.v", testName))
 		t.Logf("\n%s", ret)
 		if err != nil {
-			t.Fail()
+			t.Fatal(err)
 		}
 	}
 }
