@@ -155,9 +155,7 @@ func SignEFIVariable(key *rsa.PrivateKey, cert *x509.Certificate, varname string
 
 func SignEFIExecutable(key *rsa.PrivateKey, cert *x509.Certificate, file []byte) []byte {
 	ctx := pecoff.PECOFFChecksum(file)
-	ctx.Cert = cert
-	ctx.Key = key
-	sig := pecoff.CreateSignature(ctx)
+	sig := pecoff.CreateSignature(ctx, cert, key)
 	b := pecoff.AppendToBinary(ctx, sig)
 	return b
 }

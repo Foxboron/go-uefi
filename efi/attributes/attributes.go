@@ -110,7 +110,7 @@ func WriteEfivars(name string, attrs Attributes, b []byte) error {
 		guid = EFI_IMAGE_SECURITY_DATABASE_GUID
 	}
 	attrs |= EFI_VARIABLE_APPEND_WRITE
-	fil, err := os.OpenFile(path.Join(Efivars, fmt.Sprintf("%s-%s", name, guid.Format())), os.O_WRONLY|os.O_CREATE, 0600)
+	fil, err := os.OpenFile(path.Join(Efivars, fmt.Sprintf("%s-%s", name, guid.Format())), os.O_WRONLY|os.O_CREATE|os.O_TRUNC, 0600)
 	if err != nil {
 		log.Fatal(err)
 	}

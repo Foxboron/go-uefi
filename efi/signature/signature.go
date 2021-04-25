@@ -3,6 +3,7 @@ package signature
 import (
 	"bytes"
 	"encoding/binary"
+	"encoding/pem"
 	"io"
 	"log"
 
@@ -125,6 +126,12 @@ func NewSignatureList(data []byte, owner util.EFIGUID, certtype CertType) *Signa
 	sl := SignatureList{}
 	switch certtype {
 	case CERT_X509:
+		// Check if the cert is PEM encoded
+		// We need the DER encoded cert, but this makes it nicer
+		// for us in the API
+		if block, _ := pem.Decode(data); block != nil {
+			data = block.Bytes
+		}
 		// TODO: We should probably accept a slice...
 		sl.SignatureType = CERT_X509_GUID
 		sl.HeaderSize = 0

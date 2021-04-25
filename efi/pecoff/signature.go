@@ -79,13 +79,14 @@ func AppendToBinary(PEFile *PECOFFSigningContext, sig []byte) []byte {
 }
 
 // TODO: Need 32 bit support
-func GetSignatureDataDirectory(pefile []byte) (*pe.DataDirectory, error) {
+func GetSignatureDataDirectory(pefile []byte) (pe.DataDirectory, error) {
 	buf := bytes.NewReader(pefile)
 	f, err := pe.NewFile(buf)
 	if err != nil {
-		return nil, errors.Wrapf(err, "could parse PE file")
+		return pe.DataDirectory{}, errors.Wrapf(err, "could parse PE file")
 	}
-	return &f.OptionalHeader.(*pe.OptionalHeader64).DataDirectory[4], nil
+	defer f.Close()
+	return f.OptionalHeader.(*pe.OptionalHeader64).DataDirectory[4], nil
 }
 
 // This fetches the attached signature data

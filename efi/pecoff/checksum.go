@@ -27,6 +27,7 @@ func PECOFFChecksum(peFile []byte) *PECOFFSigningContext {
 	if err != nil {
 		log.Fatal(err)
 	}
+	defer f.Close()
 
 	hashBuffer := new(bytes.Buffer)
 
