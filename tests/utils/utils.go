@@ -6,6 +6,7 @@ import (
 	"log"
 	"os"
 	"os/exec"
+	"path"
 	"path/filepath"
 	"testing"
 	"time"
@@ -21,8 +22,25 @@ type TestVM struct {
 }
 
 type TestConfig struct {
-	Shared string
-	Ovmf   string
+	Shared  string
+	Ovmf    string
+	Secboot string
+}
+
+func NewConfig() *TestConfig {
+	dir, _ := os.MkdirTemp("", "go-uefi-test")
+	ret := &TestConfig{
+		Shared:  dir,
+		Ovmf:    path.Join(dir, "OVMF_VARS.fd"),
+		Secboot: path.Join(dir, "OVMF_CODE.secboot.fd"),
+	}
+	CopyFile("/usr/share/edk2-ovmf/x64/OVMF_VARS.fd", ret.Ovmf)
+	CopyFile("/usr/share/edk2-ovmf/x64/OVMF_CODE.secboot.fd", ret.Secboot)
+	return ret
+}
+
+func (tc *TestConfig) Remove() {
+	os.RemoveAll(tc.Shared)
 }
 
 func StartOVMF(conf TestConfig) *vmtest.Qemu {
@@ -52,30 +70,36 @@ func StartOVMF(conf TestConfig) *vmtest.Qemu {
 	return ovmf
 }
 
+func WithVM(conf *TestConfig, fn func(vm *TestVM)) {
+	vm := StartVM(conf)
+	defer vm.Close()
+	fn(vm)
+}
+
 // TODO: Wire this up with 9p instead of ssh
-func StartVM() *TestVM {
-	if !CopyFile("/usr/share/edk2-ovmf/x64/OVMF_VARS.fd", "OVMF_VARS.fd") {
-		panic("Could not find OVMF_CODE.secboot.fd")
-	}
+func StartVM(conf *TestConfig) *TestVM {
 	params := []string{
 		"-machine", "type=q35,smm=on,accel=kvm",
 		"-netdev", "user,id=net0,hostfwd=tcp::10022-:22",
 		"-device", "virtio-net-pci,netdev=net0",
 		"-nic", "user,model=virtio-net-pci",
+		"-fsdev", "local,id=test_dev,path=./shared,security_model=none",
+		"-device", "virtio-9p-pci,fsdev=test_dev,mount_tag=shared",
 		"-global", "driver=cfi.pflash01,property=secure,value=on",
 		"-global", "ICH9-LPC.disable_s3=1",
-		"-drive", "if=pflash,format=raw,unit=0,file=/usr/share/edk2-ovmf/x64/OVMF_CODE.secboot.fd,readonly",
-		"-drive", "if=pflash,format=raw,unit=1,file=OVMF_VARS.fd",
-		"-m", "8G",
-		"-smp", "2",
+		// "-drive", "if=pflash,format=raw,unit=0,file=/usr/share/edk2-ovmf/x64/OVMF_CODE.secboot.fd,readonly",
+		// "-drive", "if=pflash,format=raw,unit=1,file=ovmf/OVMF_VARS.fd",
+		"-drive", fmt.Sprintf("if=pflash,format=raw,unit=0,file=%s,readonly", conf.Secboot),
+		"-drive", fmt.Sprintf("if=pflash,format=raw,unit=1,file=%s", conf.Ovmf),
+		// "-m", "8G", "-smp", "2",
+		"-m", "8G", "-smp", "2", "-enable-kvm", "-cpu", "host",
 	}
-	params = append(params, "-enable-kvm", "-cpu", "host")
 	opts := vmtest.QemuOptions{
 		OperatingSystem: vmtest.OS_LINUX,
-		Kernel:          "bzImage",
+		Kernel:          "kernel/bzImage",
 		Params:          params,
-		Disks:           []vmtest.QemuDisk{{"rootfs.cow", "qcow2"}},
-		Append:          []string{"root=/dev/sda", "rw"},
+		Disks:           []vmtest.QemuDisk{{"kernel/rootfs.cow", "qcow2"}},
+		Append:          []string{"root=/dev/sda", "quiet", "rw"},
 		Verbose:         false, //testing.Verbose()
 		Timeout:         50 * time.Second,
 	}
@@ -84,6 +108,8 @@ func StartVM() *TestVM {
 	if err != nil {
 		panic(err)
 	}
+
+	qemu.ConsoleExpect("login:")
 
 	config := &ssh.ClientConfig{
 		User:            "root",
@@ -127,11 +153,12 @@ func (t *TestVM) CopyFile(path string) {
 
 func (tvm *TestVM) RunTest(path string) func(t *testing.T) {
 	return func(t *testing.T) {
-		if err := exec.Command("go", "test", "-c", path).Run(); err != nil {
+		testName := fmt.Sprintf("%s%s", filepath.Base(path), ".test")
+		if err := exec.Command("go", "test", "-o", testName, "-c", path).Run(); err != nil {
 			t.Fail()
 		}
-		testName := fmt.Sprintf("%s%s", filepath.Base(path), ".test")
 		tvm.CopyFile(testName)
+		os.Remove(testName)
 		ret, err := tvm.Run(fmt.Sprintf("/%s -test.v", testName))
 		t.Logf("\n%s", ret)
 		if err != nil {
