@@ -30,8 +30,8 @@ func main() {
 	}
 
 	ctx := pecoff.PECOFFChecksum(peFile)
-	Cert := util.ReadCert(*cert)
-	Key := util.ReadKey(*key)
+	Cert := util.ReadCertFromFile(*cert)
+	Key := util.ReadKeyFromFile(*key)
 
 	sig := pecoff.CreateSignature(ctx, Cert, Key)
 

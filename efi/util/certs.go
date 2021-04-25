@@ -8,11 +8,7 @@ import (
 	"log"
 )
 
-func ReadKey(path string) *rsa.PrivateKey {
-	b, err := ioutil.ReadFile(path)
-	if err != nil {
-		log.Fatal(err)
-	}
+func ReadKey(b []byte) *rsa.PrivateKey {
 	block, _ := pem.Decode(b)
 	if block == nil {
 		panic("failed to parsePEM block containing the public key!")
@@ -29,11 +25,15 @@ func ReadKey(path string) *rsa.PrivateKey {
 	}
 }
 
-func ReadCert(path string) *x509.Certificate {
+func ReadKeyFromFile(path string) *rsa.PrivateKey {
 	b, err := ioutil.ReadFile(path)
 	if err != nil {
 		log.Fatal(err)
 	}
+	return ReadKey(b)
+}
+
+func ReadCert(b []byte) *x509.Certificate {
 	block, _ := pem.Decode(b)
 	if block == nil {
 		panic("failed to parsePEM block containing the public key!")
@@ -44,4 +44,12 @@ func ReadCert(path string) *x509.Certificate {
 		panic("failed to parse certificate: " + err.Error())
 	}
 	return cert
+}
+
+func ReadCertFromFile(path string) *x509.Certificate {
+	b, err := ioutil.ReadFile(path)
+	if err != nil {
+		log.Fatal(err)
+	}
+	return ReadCert(b)
 }
