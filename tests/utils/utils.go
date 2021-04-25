@@ -79,6 +79,7 @@ func WithVM(conf *TestConfig, fn func(vm *TestVM)) {
 func StartVM(conf *TestConfig) *TestVM {
 	params := []string{
 		"-machine", "type=q35,smm=on,accel=kvm",
+		"-debugcon", "file:debug.log", "-global", "isa-debugcon.iobase=0x402",
 		"-netdev", "user,id=net0,hostfwd=tcp::10022-:22",
 		"-device", "virtio-net-pci,netdev=net0",
 		"-nic", "user,model=virtio-net-pci",
