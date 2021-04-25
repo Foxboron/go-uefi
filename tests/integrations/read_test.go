@@ -17,5 +17,4 @@ func TestReadSetupMode(t *testing.T) {
 			t.Errorf("Secure Boot enabled: %+v", sb.Data)
 		}
 	}
-
 }
