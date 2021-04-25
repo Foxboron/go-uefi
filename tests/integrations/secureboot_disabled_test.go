@@ -6,7 +6,7 @@ import (
 	"github.com/foxboron/go-uefi/efi/attributes"
 )
 
-func TestReadSetupMode(t *testing.T) {
+func TestSecureBootDisabled(t *testing.T) {
 	if sm, err := attributes.ReadEfivars("SetupMode"); err == nil {
 		if sm.Data[0] == 0 {
 			t.Errorf("Not in Setup Mode: %+v", sm.Data)
