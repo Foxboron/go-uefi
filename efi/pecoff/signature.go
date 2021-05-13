@@ -6,7 +6,6 @@ import (
 	"crypto/x509"
 	"debug/pe"
 	"encoding/binary"
-	"fmt"
 
 	"github.com/foxboron/go-uefi/efi/pkcs7"
 	"github.com/foxboron/go-uefi/efi/signature"
