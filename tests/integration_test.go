@@ -23,5 +23,6 @@ func TestKeyEnrollment(t *testing.T) {
 	utils.WithVM(conf,
 		func(vm *utils.TestVM) {
 			t.Run("Check SecureBoot enabled", vm.RunTest("./integrations/secureboot_enabled_test.go"))
+			t.Run("Check remove PK", vm.RunTest("./integrations/remove_pk_test.go"))
 		})
 }
