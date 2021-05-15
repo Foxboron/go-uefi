@@ -73,14 +73,6 @@ func TestRotateKeys(t *testing.T) {
 		t.Fatal("Still in setup mode")
 	}
 
-	signedBuf := efi.SignEFIVariable(util.ReadKey(PKKey), util.ReadCert(PKPem), "PK", []byte{})
-	if err := efi.WriteEFIVariable("PK", signedBuf); err != nil {
-		t.Fatal(err)
-	}
-	if !efi.GetSecureBoot() {
-		t.Fatal("Not in secure boot mode")
-	}
-
 	// Enroll back the old KEK for the next test
 	if err := Enroll(KEKPem1, PKKey, PKPem, "KEK"); err != nil {
 		t.Fatal(err)
