@@ -50,7 +50,7 @@ func WriteSignatureDatabase(b io.Writer, sigdb SignatureDatabase) {
 
 // Reads several signature lists from a io.Reader. It assumes io.EOF means there
 // are no more signatures to read as opposed to an actual issue
-func ReadSignatureDatabase(f io.Reader) ([]*SignatureList, error) {
+func ReadSignatureDatabase(f io.Reader) (SignatureDatabase, error) {
 	siglist := []*SignatureList{}
 	for {
 		sig, err := ReadSignatureList(f)

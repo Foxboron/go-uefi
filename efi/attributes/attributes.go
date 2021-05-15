@@ -4,12 +4,12 @@ import (
 	"bytes"
 	"encoding/binary"
 	"fmt"
-	"log"
 	"os"
 	"path"
 
 	"github.com/pkg/errors"
 
+	"github.com/foxboron/go-uefi/efi/attr"
 	"github.com/foxboron/go-uefi/efi/util"
 )
 
@@ -90,6 +90,7 @@ func ReadEfivars(filename string) (*EfiVariable, error) {
 	if err != nil {
 		return &EfiVariable{}, err
 	}
+	defer f.Close()
 	return ParseEfivars(f)
 }
 

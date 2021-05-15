@@ -30,7 +30,8 @@ func main() {
 	if err != nil {
 		log.Fatal(err)
 	}
-	c := signature.NewSignatureList(b, *guid, signature.CERT_X509)
+	c := signature.NewSignatureList(signature.CERT_X509_GUID)
+	c.AppendBytes(*guid, b)
 	buf := new(bytes.Buffer)
 	signature.WriteSignatureList(buf, *c)
 	err = ioutil.WriteFile(output, buf.Bytes(), 0644)
