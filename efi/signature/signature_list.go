@@ -71,7 +71,7 @@ func GetSupportedSignatures(f io.Reader) ([]util.EFIGUID, error) {
 	buf := new(bytes.Buffer)
 	buf.ReadFrom(f)
 	supportedSigs := make([]util.EFIGUID, buf.Len()/16)
-	if err := binary.Read(f, binary.LittleEndian, &supportedSigs); err != nil {
+	if err := binary.Read(buf, binary.LittleEndian, &supportedSigs); err != nil {
 		return nil, errors.Wrapf(err, "could not parse EFIGUIDs from this reader")
 	}
 	return supportedSigs, nil
@@ -117,34 +117,42 @@ type SignatureList struct {
 	Signatures      []SignatureData // SignatureData List
 }
 
-type SignatureDatabase []*SignatureList
-
 // SignatureSize + sizeof(SignatureType) + sizeof(uint32)*4
 const SizeofSignatureList uint32 = 16 + 4 + 4 + 4
 
-func NewSignatureList(data []byte, owner util.EFIGUID, certtype CertType) *SignatureList {
-	sl := SignatureList{}
-	switch certtype {
-	case CERT_X509:
+func NewSignatureList(certtype util.EFIGUID) *SignatureList {
+	return &SignatureList{
+		SignatureType:   certtype,
+		ListSize:        SizeofSignatureList,
+		HeaderSize:      0,
+		Size:            0,
+		SignatureHeader: []uint8{},
+		Signatures:      []SignatureData{},
+	}
+}
+
+func (sl *SignatureList) AppendBytes(owner util.EFIGUID, data []byte) error {
+	switch sl.SignatureType {
+	case CERT_X509_GUID:
 		// Check if the cert is PEM encoded
 		// We need the DER encoded cert, but this makes it nicer
 		// for us in the API
 		if block, _ := pem.Decode(data); block != nil {
 			data = block.Bytes
 		}
-		// TODO: We should probably accept a slice...
-		sl.SignatureType = CERT_X509_GUID
-		sl.HeaderSize = 0
-		sl.SignatureHeader = []uint8{}
-		sl.Size = uint32(len(data)) + 16
-		sd := []SignatureData{SignatureData{Owner: owner, Data: data}}
-		sl.Signatures = sd
-		// SignatureSize + sizeof(SignatureType) + sizeof(uint32)*4
-		sl.ListSize = sl.Size + SizeofSignatureList
-	default:
-		log.Fatalf("Unsupported certificate format")
+	case CERT_SHA256_GUID:
+		if len(data) != 32 {
+			return errors.New("not a sha256 hash")
+		}
 	}
-	return &sl
+	sl.Signatures = append(sl.Signatures, SignatureData{Owner: owner, Data: data})
+	sl.Size = uint32(len(data)) + 16
+	sl.ListSize += sl.Size
+	return nil
+}
+
+func (sl *SignatureList) AppendSignature(s SignatureData) error {
+	return sl.AppendBytes(s.Owner, s.Data)
 }
 
 // Writes a signature list
@@ -157,13 +165,6 @@ func WriteSignatureList(b io.Writer, s SignatureList) {
 	}
 	for _, l := range s.Signatures {
 		WriteSignatureData(b, l)
-	}
-}
-
-// Write a signature database which contains a slice of SignautureLists
-func WriteSignatureDatabase(b io.Writer, sigdb SignatureDatabase) {
-	for _, l := range sigdb {
-		WriteSignatureList(b, *l)
 	}
 }
 
@@ -218,6 +219,12 @@ func ReadSignatureList(f io.Reader) (*SignatureList, error) {
 		}
 		sigData, err = parseList(sigData, s.Size)
 	default:
+		// if s.Size != 0 {
+		// 	buf := make([]byte, s.Size)
+		// 	if err := binary.Read(f, binary.LittleEndian, buf); err != nil {
+		// 		return nil, errors.Wrap(err, "could not read default list")
+		// 	}
+		// }
 		log.Fatalf("Not implemented signature list certificate: %s", sig)
 	}
 	if err != nil {
@@ -225,20 +232,4 @@ func ReadSignatureList(f io.Reader) (*SignatureList, error) {
 	}
 	s.Signatures = sigData
 	return &s, nil
-}
-
-// Reads several signature lists from a io.Reader. It assumes io.EOF means there
-// are no more signatures to read as opposed to an actual issue
-func ReadSignatureDatabase(f io.Reader) ([]*SignatureList, error) {
-	siglist := []*SignatureList{}
-	for {
-		sig, err := ReadSignatureList(f)
-		if errors.Is(err, io.EOF) {
-			break
-		} else if err != nil {
-			return siglist, errors.Wrapf(err, "failed to parse signature lists")
-		}
-		siglist = append(siglist, sig)
-	}
-	return siglist, nil
 }

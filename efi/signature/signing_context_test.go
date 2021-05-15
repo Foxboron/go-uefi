@@ -31,7 +31,10 @@ func TestVerifySignature(t *testing.T) {
 	pathAuth := "../../tests/data/signatures/varsign/PK.auth"
 	b, _ := ioutil.ReadFile(pathAuth)
 	f := bytes.NewReader(b)
-	d := ReadEFIVariableAuthencation2(f)
+	d, err := ReadEFIVariableAuthencation2(f)
+	if err != nil {
+		log.Fatal(err)
+	}
 	buf := new(bytes.Buffer)
 	WriteEFIVariableAuthencation2(buf, *d)
 }

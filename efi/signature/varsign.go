@@ -3,6 +3,7 @@ package signature
 import (
 	"bytes"
 	"encoding/binary"
+	"io"
 	"log"
 
 	"github.com/foxboron/go-uefi/efi/util"
@@ -46,7 +47,7 @@ const SizeofWINCertificate = 4 + 2 + 2
 
 var ErrParse = errors.New("could not parse struct")
 
-func ReadWinCertificate(f *bytes.Reader) (WINCertificate, error) {
+func ReadWinCertificate(f io.Reader) (WINCertificate, error) {
 	var cert WINCertificate
 	for _, v := range []interface{}{&cert.Length, &cert.Revision, &cert.CertType} {
 		if err := binary.Read(f, binary.LittleEndian, v); err != nil {
@@ -87,7 +88,7 @@ type WinCertificateUEFIGUID struct {
 
 const SizeofWinCertificateUEFIGUID = SizeofWINCertificate + 16
 
-func ReadWinCertificateUEFIGUID(f *bytes.Reader) (WinCertificateUEFIGUID, error) {
+func ReadWinCertificateUEFIGUID(f io.Reader) (WinCertificateUEFIGUID, error) {
 	var cert WinCertificateUEFIGUID
 	hdr, err := ReadWinCertificate(f)
 	if err != nil {
@@ -148,7 +149,7 @@ func NewEFIVariableAuthentication2() *EFIVariableAuthentication2 {
 	}
 }
 
-func ReadEFIVariableAuthencation2(f *bytes.Reader) (*EFIVariableAuthentication2, error) {
+func ReadEFIVariableAuthencation2(f io.Reader) (*EFIVariableAuthentication2, error) {
 	var efi EFIVariableAuthentication2
 	if err := binary.Read(f, binary.LittleEndian, &efi.Time); err != nil {
 		log.Fatal(err)
