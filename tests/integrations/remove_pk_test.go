@@ -48,9 +48,9 @@ func TestRemovePK(t *testing.T) {
 
 func TestRotateKeys(t *testing.T) {
 	PKKey, PKPem := utils.CreateKey()
-	PKKey1, _ := os.ReadFile("/mnt/PK.key")
-	PKPem1, _ := os.ReadFile("/mnt/PK.pem")
-	KEKPem1, _ := os.ReadFile("/mnt/KEK.pem")
+	PKKeyOld, _ := os.ReadFile("/mnt/PK.key")
+	PKPemOld, _ := os.ReadFile("/mnt/PK.pem")
+	KEKPemOld, _ := os.ReadFile("/mnt/KEK.pem")
 	_, KEKPem := utils.CreateKey()
 	_, dbPem := utils.CreateKey()
 
@@ -60,13 +60,13 @@ func TestRotateKeys(t *testing.T) {
 	// KEK -> db -> PK
 	// Where all the new keys are signed by the old Platform key
 
-	if err := Enroll(KEKPem, PKKey1, PKPem1, "KEK"); err != nil {
+	if err := Enroll(KEKPem, PKKeyOld, PKPemOld, "KEK"); err != nil {
 		t.Fatal(err)
 	}
-	if err := Enroll(dbPem, PKKey1, PKPem1, "db"); err != nil {
+	if err := Enroll(dbPem, PKKeyOld, PKPemOld, "db"); err != nil {
 		t.Fatal(err)
 	}
-	if err := Enroll(PKPem, PKKey1, PKPem1, "PK"); err != nil {
+	if err := Enroll(PKPem, PKKeyOld, PKPemOld, "PK"); err != nil {
 		t.Fatal(err)
 	}
 	if efi.GetSetupMode() {
@@ -74,7 +74,7 @@ func TestRotateKeys(t *testing.T) {
 	}
 
 	// Enroll back the old KEK for the next test
-	if err := Enroll(KEKPem1, PKKey, PKPem, "KEK"); err != nil {
+	if err := Enroll(KEKPemOld, PKKey, PKPem, "KEK"); err != nil {
 		t.Fatal(err)
 	}
 }
