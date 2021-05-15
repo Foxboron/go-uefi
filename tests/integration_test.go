@@ -8,6 +8,12 @@ import (
 
 func TestKeyEnrollment(t *testing.T) {
 	conf := utils.NewConfig()
+	conf.AddFile("./ovmf/keys/db/db.key")
+	conf.AddFile("./ovmf/keys/db/db.pem")
+	conf.AddFile("./ovmf/keys/KEK/KEK.key")
+	conf.AddFile("./ovmf/keys/KEK/KEK.pem")
+	conf.AddFile("./ovmf/keys/PK/PK.key")
+	conf.AddFile("./ovmf/keys/PK/PK.pem")
 	utils.WithVM(conf,
 		func(vm *utils.TestVM) {
 			t.Run("Check SetupMode enabled", vm.RunTest("./integrations/secureboot_disabled_test.go"))

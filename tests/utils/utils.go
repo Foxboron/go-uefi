@@ -2,11 +2,9 @@ package utils
 
 import (
 	"fmt"
-	"io"
 	"log"
 	"os"
 	"os/exec"
-	"path"
 	"path/filepath"
 	"testing"
 	"time"
@@ -14,33 +12,6 @@ import (
 	"github.com/anatol/vmtest"
 	"golang.org/x/crypto/ssh"
 )
-
-type TestVM struct {
-	qemu *vmtest.Qemu
-	conn *ssh.Client
-}
-
-type TestConfig struct {
-	Shared  string
-	Ovmf    string
-	Secboot string
-}
-
-func NewConfig() *TestConfig {
-	dir, _ := os.MkdirTemp("", "go-uefi-test")
-	ret := &TestConfig{
-		Shared:  dir,
-		Ovmf:    path.Join(dir, "OVMF_VARS.fd"),
-		Secboot: path.Join(dir, "OVMF_CODE.secboot.fd"),
-	}
-	CopyFile("/usr/share/edk2-ovmf/x64/OVMF_VARS.fd", ret.Ovmf)
-	CopyFile("/usr/share/edk2-ovmf/x64/OVMF_CODE.secboot.fd", ret.Secboot)
-	return ret
-}
-
-func (tc *TestConfig) Remove() {
-	os.RemoveAll(tc.Shared)
-}
 
 func StartOVMF(conf TestConfig) *vmtest.Qemu {
 	params := []string{
@@ -67,6 +38,11 @@ func StartOVMF(conf TestConfig) *vmtest.Qemu {
 	}
 	ovmf.ConsoleExpect("Shell>")
 	return ovmf
+}
+
+type TestVM struct {
+	qemu *vmtest.Qemu
+	conn *ssh.Client
 }
 
 func WithVM(conf *TestConfig, fn func(vm *TestVM)) {
@@ -164,20 +140,4 @@ func (tvm *TestVM) RunTest(path string) func(t *testing.T) {
 			t.Fatal(err)
 		}
 	}
-}
-
-func CopyFile(src, dst string) bool {
-	source, err := os.Open(src)
-	if err != nil {
-		log.Fatal(err)
-	}
-	defer source.Close()
-
-	f, err := os.OpenFile(dst, os.O_RDWR|os.O_CREATE|os.O_TRUNC, 0644)
-	if err != nil {
-		log.Fatal(err)
-	}
-	defer f.Close()
-	io.Copy(f, source)
-	return true
 }
