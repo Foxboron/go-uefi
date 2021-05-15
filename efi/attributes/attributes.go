@@ -110,17 +110,28 @@ func WriteEfivars(name string, attrs Attributes, b []byte) error {
 	if ok := ImageSecurityDatabases[name]; ok {
 		guid = EFI_IMAGE_SECURITY_DATABASE_GUID
 	}
-	attrs |= EFI_VARIABLE_APPEND_WRITE
-	fil, err := os.OpenFile(path.Join(Efivars, fmt.Sprintf("%s-%s", name, guid.Format())), os.O_WRONLY|os.O_CREATE|os.O_TRUNC, 0600)
-	if err != nil {
-		log.Fatal(err)
+	// attrs |= EFI_VARIABLE_APPEND_WRITE
+	efivar := path.Join(Efivars, fmt.Sprintf("%s-%s", name, guid.Format()))
+	if err := attr.IsImmutable(efivar); errors.Is(err, attr.ErrIsImmutable) {
+		err := attr.UnsetImmutable(efivar)
+		if err != nil {
+			return err
+		}
+	} else if errors.Is(err, os.ErrNotExist) {
+	} else if err != nil {
+		return err
 	}
-	defer fil.Close()
+
+	f, err := os.OpenFile(efivar, os.O_RDWR|os.O_CREATE|os.O_TRUNC, 0644)
+	if err != nil {
+		return errors.Wrap(err, "couldn't open file")
+	}
+	defer f.Close()
 	attrBuf := new(bytes.Buffer)
 	binary.Write(attrBuf, binary.LittleEndian, attrs)
 	buf := append(attrBuf.Bytes(), b...)
-	if n, err := fil.Write(buf); err != nil {
-		return err
+	if n, err := f.Write(buf); err != nil {
+		return errors.Wrap(err, "couldn't write efi variable")
 	} else if n != len(buf) {
 		return errors.New("could not write the entire buffer")
 	}

@@ -128,7 +128,7 @@ func Getdb() ([]*signature.SignatureList, error) {
 
 func SignEFIVariable(key *rsa.PrivateKey, cert *x509.Certificate, varname string, siglist []byte) []byte {
 	attrs := ValidAttributes[varname]
-	attrs |= attributes.EFI_VARIABLE_APPEND_WRITE
+	// attrs |= attributes.EFI_VARIABLE_APPEND_WRITE
 
 	var guid util.EFIGUID
 
