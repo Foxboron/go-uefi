@@ -1,7 +1,6 @@
 package device
 
 import (
-	"bytes"
 	"encoding/binary"
 	"io"
 	"log"
@@ -93,7 +92,7 @@ end:
 	return ret
 }
 
-func ParseEFILoadOption(f *bytes.Reader) *EFILoadOption {
+func ParseEFILoadOption(f io.Reader) *EFILoadOption {
 	var bootentry EFILoadOption
 	for _, b := range []interface{}{&bootentry.Attributes, &bootentry.FilePathListLength} {
 		if err := binary.Read(f, binary.LittleEndian, b); err != nil {

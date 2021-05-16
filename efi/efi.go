@@ -42,17 +42,18 @@ var ValidAttributes = map[string]attributes.Attributes{
 
 func GetBootOrder() []string {
 	ret := []string{}
-	s, _ := attributes.ReadEfivars("BootOrder")
-	for i := 0; i < len(s.Data); i += 2 {
-		val := binary.BigEndian.Uint16([]byte{s.Data[i+1], s.Data[i]})
+	_, data, _ := attributes.ReadEfivars("BootOrder")
+	for i := 0; i < data.Len(); i += 2 {
+		b := make([]byte, 2)
+		data.Read(b)
+		val := binary.BigEndian.Uint16([]byte{b[1], b[0]})
 		ret = append(ret, fmt.Sprintf("Boot%04x\n", val))
 	}
 	return ret
 }
 
 func GetBootEntry(entry string) *device.EFILoadOption {
-	s, _ := attributes.ReadEfivars(entry)
-	f := bytes.NewReader(s.Data)
+	_, f, _ := attributes.ReadEfivars(entry)
 	loadOption := device.ParseEFILoadOption(f)
 	loadOption.FilePath = device.ParseDevicePath(f)
 	return loadOption
@@ -60,8 +61,9 @@ func GetBootEntry(entry string) *device.EFILoadOption {
 
 // GetSetupMode returns if setup mode has been enabled on the machine.
 func GetSetupMode() bool {
-	if sm, err := attributes.ReadEfivars("SetupMode"); err == nil {
-		if sm.Data[0] == 1 {
+	if _, data, err := attributes.ReadEfivars("SetupMode"); err == nil {
+		b, _ := data.ReadByte()
+		if b == 1 {
 			return true
 		}
 	}
@@ -70,8 +72,9 @@ func GetSetupMode() bool {
 
 // GetSecureBoot returns if secure boot has been enabled on the machine.
 func GetSecureBoot() bool {
-	if sm, err := attributes.ReadEfivars("SecureBoot"); err == nil {
-		if sm.Data[0] == 1 {
+	if _, data, err := attributes.ReadEfivars("SecureBoot"); err == nil {
+		b, _ := data.ReadByte()
+		if b == 1 {
 			return true
 		}
 	}
@@ -80,14 +83,14 @@ func GetSecureBoot() bool {
 
 func GetPK() ([]*signature.SignatureList, error) {
 	efivar := "PK"
-	s, err := attributes.ReadEfivars(efivar)
+	attributes, data, err := attributes.ReadEfivars(efivar)
 	if err != nil {
 		log.Fatal(err)
 	}
-	if (ValidAttributes[efivar] & s.Attributes) != ValidAttributes[efivar] {
+	if (ValidAttributes[efivar] & attributes) != ValidAttributes[efivar] {
 		return nil, fmt.Errorf("invalid bitmask")
 	}
-	siglist, err := signature.ReadSignatureDatabase(bytes.NewReader(s.Data))
+	siglist, err := signature.ReadSignatureDatabase(data)
 	if err != nil {
 		return nil, errors.Wrapf(err, "can't parse Platform Key")
 	}
@@ -96,14 +99,14 @@ func GetPK() ([]*signature.SignatureList, error) {
 
 func GetKEK() ([]*signature.SignatureList, error) {
 	efivar := "KEK"
-	s, err := attributes.ReadEfivars(efivar)
+	attr, data, err := attributes.ReadEfivars(efivar)
 	if err != nil {
 		log.Fatal(err)
 	}
-	if (ValidAttributes[efivar] & s.Attributes) != ValidAttributes[efivar] {
+	if (ValidAttributes[efivar] & attr) != ValidAttributes[efivar] {
 		return nil, fmt.Errorf("invalid bitmask")
 	}
-	siglist, err := signature.ReadSignatureDatabase(bytes.NewReader(s.Data))
+	siglist, err := signature.ReadSignatureDatabase(data)
 	if err != nil {
 		return nil, errors.Wrapf(err, "can't parse Key Exchange key")
 	}
@@ -112,14 +115,14 @@ func GetKEK() ([]*signature.SignatureList, error) {
 
 func Getdb() ([]*signature.SignatureList, error) {
 	efivar := "db"
-	s, err := attributes.ReadEfivars(efivar)
+	attr, data, err := attributes.ReadEfivars(efivar)
 	if err != nil {
 		log.Fatal(err)
 	}
-	if (ValidAttributes[efivar] & s.Attributes) != ValidAttributes[efivar] {
+	if (ValidAttributes[efivar] & attr) != ValidAttributes[efivar] {
 		return nil, fmt.Errorf("invalid bitmask")
 	}
-	siglist, err := signature.ReadSignatureDatabase(bytes.NewReader(s.Data))
+	siglist, err := signature.ReadSignatureDatabase(data)
 	if err != nil {
 		return nil, errors.Wrapf(err, "can't parse database key")
 	}

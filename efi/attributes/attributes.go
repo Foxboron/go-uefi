@@ -64,41 +64,40 @@ type EfiVariable struct {
 	Data       []byte
 }
 
-func ParseEfivars(f *os.File) (*EfiVariable, error) {
-	var variable EfiVariable
-	if err := binary.Read(f, binary.LittleEndian, &variable.Attributes); err != nil {
-		return &EfiVariable{}, nil
+func ParseEfivars(f *os.File) (Attributes, *bytes.Buffer, error) {
+	var attrs Attributes
+	if err := binary.Read(f, binary.LittleEndian, &attrs); err != nil {
+		return 0, nil, errors.Wrap(err, "could not read file")
 	}
 	stat, err := f.Stat()
 	if err != nil {
-		return &EfiVariable{}, errors.Wrap(err, "could not find file")
+		return 0, nil, errors.Wrap(err, "could not stat file descriptor")
 	}
 	buf := make([]byte, stat.Size()-4)
 	if err = binary.Read(f, binary.LittleEndian, &buf); err != nil {
-		return &EfiVariable{}, nil
+		return 0, nil, err
 	}
-	variable.Data = buf
-	return &variable, nil
+	return attrs, bytes.NewBuffer(buf), nil
 }
 
-func ReadEfivars(filename string) (*EfiVariable, error) {
+func ReadEfivars(filename string) (Attributes, *bytes.Buffer, error) {
 	guid := EFI_GLOBAL_VARIABLE
 	if ok := ImageSecurityDatabases[filename]; ok {
 		guid = EFI_IMAGE_SECURITY_DATABASE_GUID
 	}
 	f, err := os.Open(path.Join(Efivars, fmt.Sprintf("%s-%s", filename, guid.Format())))
 	if err != nil {
-		return &EfiVariable{}, err
+		return 0, nil, err
 	}
 	defer f.Close()
 	return ParseEfivars(f)
 }
 
 // For a full path instead of the inferred efivars path
-func ReadEfivarsFile(filename string) (*EfiVariable, error) {
+func ReadEfivarsFile(filename string) (Attributes, *bytes.Buffer, error) {
 	f, err := os.Open(filename)
 	if err != nil {
-		return &EfiVariable{}, err
+		return 0, nil, err
 	}
 	defer f.Close()
 	return ParseEfivars(f)
