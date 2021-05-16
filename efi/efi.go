@@ -129,9 +129,16 @@ func Getdb() ([]*signature.SignatureList, error) {
 	return siglist, nil
 }
 
-func SignEFIVariable(key *rsa.PrivateKey, cert *x509.Certificate, varname string, siglist []byte) []byte {
+func SignEFIExecutable(key *rsa.PrivateKey, cert *x509.Certificate, file []byte) []byte {
+	ctx := pecoff.PECOFFChecksum(file)
+	sig := pecoff.CreateSignature(ctx, cert, key)
+	b := pecoff.AppendToBinary(ctx, sig)
+	return b
+}
+
+func SignEFIVariableWithAttr(key *rsa.PrivateKey, cert *x509.Certificate, varname string, siglist []byte, attr attributes.Attributes) []byte {
 	attrs := ValidAttributes[varname]
-	// attrs |= attributes.EFI_VARIABLE_APPEND_WRITE
+	attrs |= attr
 
 	var guid util.EFIGUID
 
@@ -156,11 +163,8 @@ func SignEFIVariable(key *rsa.PrivateKey, cert *x509.Certificate, varname string
 	return buf.Bytes()
 }
 
-func SignEFIExecutable(key *rsa.PrivateKey, cert *x509.Certificate, file []byte) []byte {
-	ctx := pecoff.PECOFFChecksum(file)
-	sig := pecoff.CreateSignature(ctx, cert, key)
-	b := pecoff.AppendToBinary(ctx, sig)
-	return b
+func SignEFIVariable(key *rsa.PrivateKey, cert *x509.Certificate, varname string, siglist []byte) []byte {
+	return SignEFIVariableWithAttr(key, cert, varname, siglist, 0)
 }
 
 func WriteEFIVariable(variable string, buf []byte) error {
