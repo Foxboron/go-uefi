@@ -130,14 +130,17 @@ func (tvm *TestVM) RunTest(path string) func(t *testing.T) {
 			cmd.Stderr = os.Stderr
 		}
 		if err := cmd.Run(); err != nil {
-			t.Fail()
+			tvm.Close()
+			t.Error(err)
 		}
 		tvm.CopyFile(testName)
 		os.Remove(testName)
+
 		ret, err := tvm.Run(fmt.Sprintf("/%s -test.v", testName))
 		t.Logf("\n%s", ret)
 		if err != nil {
-			t.Fatal(err)
+			tvm.Close()
+			t.Error(err)
 		}
 	}
 }
