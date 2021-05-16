@@ -25,11 +25,10 @@ var (
 )
 
 func ReadKeyDB(vars string) (signature.SignatureDatabase, error) {
-	s, err := attributes.ReadEfivars(vars)
+	_, f, err := attributes.ReadEfivars(vars)
 	if err != nil {
 		return nil, err
 	}
-	f := bytes.NewReader(s.Data)
 	sigdb, err := signature.ReadSignatureDatabase(f)
 	if err != nil {
 		return nil, err
