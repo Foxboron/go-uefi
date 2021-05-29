@@ -57,5 +57,13 @@ func CopyFile(src, dst string) bool {
 	}
 	defer f.Close()
 	io.Copy(f, source)
+	si, err := os.Stat(src)
+	if err != nil {
+		log.Fatal(err)
+	}
+	err = os.Chmod(dst, si.Mode())
+	if err != nil {
+		log.Fatal(err)
+	}
 	return true
 }
