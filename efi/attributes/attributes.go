@@ -85,6 +85,10 @@ func ReadEfivars(filename string) (Attributes, *bytes.Buffer, error) {
 	if ok := ImageSecurityDatabases[filename]; ok {
 		guid = EFI_IMAGE_SECURITY_DATABASE_GUID
 	}
+	return ReadEfivarsWithGuid(filename, guid)
+}
+
+func ReadEfivarsWithGuid(filename string, guid util.EFIGUID) (Attributes, *bytes.Buffer, error) {
 	f, err := os.Open(path.Join(Efivars, fmt.Sprintf("%s-%s", filename, guid.Format())))
 	if err != nil {
 		return 0, nil, err
