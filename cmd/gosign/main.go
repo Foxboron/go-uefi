@@ -30,12 +30,24 @@ func main() {
 	}
 
 	ctx := pecoff.PECOFFChecksum(peFile)
-	Cert := util.ReadCertFromFile(*cert)
-	Key := util.ReadKeyFromFile(*key)
+	Cert, err := util.ReadCertFromFile(*cert)
+	if err != nil {
+		log.Fatal(err)
+	}
+	Key, err := util.ReadKeyFromFile(*key)
+	if err != nil {
+		log.Fatal(err)
+	}
 
-	sig := pecoff.CreateSignature(ctx, Cert, Key)
+	sig, err := pecoff.CreateSignature(ctx, Cert, Key)
+	if err != nil {
+		log.Fatal(err)
+	}
 
-	b := pecoff.AppendToBinary(ctx, sig)
+	b, err := pecoff.AppendToBinary(ctx, sig)
+	if err != nil {
+		log.Fatal(err)
+	}
 	if err = ioutil.WriteFile(args[1], b, 0644); err != nil {
 		log.Fatal(err)
 	}

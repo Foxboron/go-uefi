@@ -6,13 +6,14 @@ import (
 	"crypto/x509"
 	"debug/pe"
 	"encoding/binary"
+	"fmt"
 
 	"github.com/foxboron/go-uefi/efi/pkcs7"
 	"github.com/foxboron/go-uefi/efi/signature"
 	"github.com/pkg/errors"
 )
 
-func CreateSignature(ctx *PECOFFSigningContext, Cert *x509.Certificate, Key *rsa.PrivateKey) []byte {
+func CreateSignature(ctx *PECOFFSigningContext, Cert *x509.Certificate, Key *rsa.PrivateKey) ([]byte, error) {
 
 	sigCtx := &pkcs7.SigningContext{
 		Cert:     Cert,
@@ -20,10 +21,14 @@ func CreateSignature(ctx *PECOFFSigningContext, Cert *x509.Certificate, Key *rsa
 		SigData:  ctx.SigData.Bytes(),
 		Indirect: true,
 	}
-	return pkcs7.SignData(sigCtx)
+	sd, err := pkcs7.SignData(sigCtx)
+	if err != nil {
+		return nil, err
+	}
+	return sd, nil
 }
 
-func AppendToBinary(PEFile *PECOFFSigningContext, sig []byte) []byte {
+func AppendToBinary(PEFile *PECOFFSigningContext, sig []byte) ([]byte, error) {
 
 	info := signature.WINCertificate{
 		Length:      uint32(signature.SizeofWINCertificate + len(sig)),
@@ -42,7 +47,7 @@ func AppendToBinary(PEFile *PECOFFSigningContext, sig []byte) []byte {
 	var datadir pe.DataDirectory
 	buf := PEFile.PEFile[PEFile.DD4Start:PEFile.DD4End]
 	if err := binary.Read(bytes.NewBuffer(buf), binary.LittleEndian, &datadir); err != nil {
-		panic("There isn't any DataDirectory struct in the offset. There should be!")
+		return nil, fmt.Errorf("there isn't any DataDirectory struct in the offset")
 	}
 
 	if datadir.VirtualAddress != 0 && datadir.Size != 0 {
@@ -67,14 +72,14 @@ func AppendToBinary(PEFile *PECOFFSigningContext, sig []byte) []byte {
 	// Create the struct and overwrite the datadirectory
 	datadirBuf := new(bytes.Buffer)
 	if err := binary.Write(datadirBuf, binary.LittleEndian, &datadir); err != nil {
-		panic("Can't create DataDir with context")
+		return nil, err
 	}
 	copy(PEFile.PEFile[PEFile.DD4Start:], datadirBuf.Bytes())
 
 	// Append the certificate at the end of the file
 	// TODO: Should we optimize this?
 	pefile := append(PEFile.PEFile, certBuf.Bytes()...)
-	return pefile
+	return pefile, nil
 }
 
 // TODO: Need 32 bit support

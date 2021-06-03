@@ -4,52 +4,52 @@ import (
 	"crypto/rsa"
 	"crypto/x509"
 	"encoding/pem"
+	"fmt"
 	"io/ioutil"
-	"log"
 )
 
-func ReadKey(b []byte) *rsa.PrivateKey {
+func ReadKey(b []byte) (*rsa.PrivateKey, error) {
 	block, _ := pem.Decode(b)
 	if block == nil {
-		panic("failed to parsePEM block containing the public key!")
+		return nil, fmt.Errorf("failed to parse pem block")
 	}
 	priv, err := x509.ParsePKCS8PrivateKey(block.Bytes)
 	if err != nil {
-		panic("failed to parse DER encoded private key: " + err.Error())
+		return nil, fmt.Errorf("failed to parse key: %w", err)
 	}
 	switch priv := priv.(type) {
 	case *rsa.PrivateKey:
-		return priv
+		return priv, nil
 	default:
-		panic("unknown type of public key")
+		return nil, fmt.Errorf("unknown type of public key")
 	}
 }
 
-func ReadKeyFromFile(path string) *rsa.PrivateKey {
+func ReadKeyFromFile(path string) (*rsa.PrivateKey, error) {
 	b, err := ioutil.ReadFile(path)
 	if err != nil {
-		log.Fatal(err)
+		return nil, err
 	}
 	return ReadKey(b)
 }
 
-func ReadCert(b []byte) *x509.Certificate {
+func ReadCert(b []byte) (*x509.Certificate, error) {
 	block, _ := pem.Decode(b)
 	if block == nil {
-		panic("failed to parsePEM block containing the public key!")
+		return nil, fmt.Errorf("no pem block")
 	}
 
 	cert, err := x509.ParseCertificate(block.Bytes)
 	if err != nil {
-		panic("failed to parse certificate: " + err.Error())
+		return nil, fmt.Errorf("failed to parse cert: %w", err)
 	}
-	return cert
+	return cert, nil
 }
 
-func ReadCertFromFile(path string) *x509.Certificate {
+func ReadCertFromFile(path string) (*x509.Certificate, error) {
 	b, err := ioutil.ReadFile(path)
 	if err != nil {
-		log.Fatal(err)
+		return nil, err
 	}
 	return ReadCert(b)
 }

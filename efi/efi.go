@@ -129,14 +129,20 @@ func Getdb() ([]*signature.SignatureList, error) {
 	return siglist, nil
 }
 
-func SignEFIExecutable(key *rsa.PrivateKey, cert *x509.Certificate, file []byte) []byte {
+func SignEFIExecutable(key *rsa.PrivateKey, cert *x509.Certificate, file []byte) ([]byte, error) {
 	ctx := pecoff.PECOFFChecksum(file)
-	sig := pecoff.CreateSignature(ctx, cert, key)
-	b := pecoff.AppendToBinary(ctx, sig)
-	return b
+	sig, err := pecoff.CreateSignature(ctx, cert, key)
+	if err != nil {
+		return nil, err
+	}
+	b, err := pecoff.AppendToBinary(ctx, sig)
+	if err != nil {
+		return nil, err
+	}
+	return b, nil
 }
 
-func SignEFIVariableWithAttr(key *rsa.PrivateKey, cert *x509.Certificate, varname string, siglist []byte, attr attributes.Attributes) []byte {
+func SignEFIVariableWithAttr(key *rsa.PrivateKey, cert *x509.Certificate, varname string, siglist []byte, attr attributes.Attributes) ([]byte, error) {
 	attrs := ValidAttributes[varname]
 	attrs |= attr
 
@@ -156,14 +162,17 @@ func SignEFIVariableWithAttr(key *rsa.PrivateKey, cert *x509.Certificate, varnam
 		Attr:    attrs,
 		Data:    siglist,
 	}
-	signedVariable := signature.NewSignedEFIVariable(ctx)
+	signedVariable, err := signature.NewSignedEFIVariable(ctx)
+	if err != nil {
+		return nil, err
+	}
 	buf := new(bytes.Buffer)
 	signature.WriteEFIVariableAuthencation2(buf, *signedVariable)
 	buf.Write(siglist)
-	return buf.Bytes()
+	return buf.Bytes(), err
 }
 
-func SignEFIVariable(key *rsa.PrivateKey, cert *x509.Certificate, varname string, siglist []byte) []byte {
+func SignEFIVariable(key *rsa.PrivateKey, cert *x509.Certificate, varname string, siglist []byte) ([]byte, error) {
 	return SignEFIVariableWithAttr(key, cert, varname, siglist, 0)
 }
 

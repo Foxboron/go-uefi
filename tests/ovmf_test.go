@@ -8,6 +8,7 @@ import (
 	"regexp"
 	"testing"
 
+	"github.com/anatol/vmtest"
 	"github.com/foxboron/go-uefi/efi/pecoff"
 	"github.com/foxboron/go-uefi/efi/pkcs7"
 	"github.com/foxboron/go-uefi/efi/util"

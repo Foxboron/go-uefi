@@ -28,8 +28,18 @@ func main() {
 	if err != nil {
 		log.Fatal(err)
 	}
-
-	buf := efi.SignEFIVariable(util.ReadKey(*key), util.ReadCert(*cert), *variable, b)
+	keyFile, err := util.ReadKeyFromFile(*key)
+	if err != nil {
+		log.Fatal(err)
+	}
+	certFile, err := util.ReadCertFromFile(*cert)
+	if err != nil {
+		log.Fatal(err)
+	}
+	buf, err := efi.SignEFIVariable(keyFile, certFile, *variable, b)
+	if err != nil {
+		log.Fatal(err)
+	}
 
 	err = ioutil.WriteFile(args[1], buf, 0644)
 	if err != nil {

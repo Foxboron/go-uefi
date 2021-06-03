@@ -45,8 +45,7 @@ func FormatSignatureList(siglist []*signature.SignatureList) {
 }
 
 func ParseKeyDb(filename string) {
-	s, _ := attributes.ReadEfivarsFile(filename)
-	f := bytes.NewReader(s.Data)
+	_, f, _ := attributes.ReadEfivarsFile(filename)
 	siglist, err := signature.ReadSignatureDatabase(f)
 	if err != nil {
 		log.Fatal(err)

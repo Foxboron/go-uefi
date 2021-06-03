@@ -29,7 +29,10 @@ func main() {
 	if err != nil {
 		log.Fatal(err)
 	}
-	x509Cert := util.ReadCert(*cert)
+	x509Cert, err := util.ReadCertFromFile(*cert)
+	if err != nil {
+		log.Fatal(err)
+	}
 	sigs, err := pecoff.GetSignatures(peFile)
 	if err != nil {
 		log.Fatal(err)

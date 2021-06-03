@@ -44,7 +44,9 @@ func TestParseCertificate(t *testing.T) {
 		Indirect: true,
 	}
 
-	buf := SignData(ctx)
+	buf, err := SignData(ctx)
+	if err != nil {
+		t.Fail()
+	}
 	VerifySignature(ctx, buf)
-
 }

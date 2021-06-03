@@ -24,7 +24,7 @@ type EFIVariableSigningContext struct {
 
 // Uses EFIVariableAuthentication2
 // Section 8.2.2 - Using the EFI_VARIABLE_AUTHENTICATION_2 descriptor
-func NewSignedEFIVariable(ctx *EFIVariableSigningContext) *EFIVariableAuthentication2 {
+func NewSignedEFIVariable(ctx *EFIVariableSigningContext) (*EFIVariableAuthentication2, error) {
 	// TODO: Move to internal pkcs7 library
 	buf := new(bytes.Buffer)
 	efva := NewEFIVariableAuthentication2()
@@ -54,9 +54,12 @@ func NewSignedEFIVariable(ctx *EFIVariableSigningContext) *EFIVariableAuthentica
 		Indirect: false,
 	}
 
-	detachedSignature := pkcs7.SignData(sigCtx)
+	detachedSignature, err := pkcs7.SignData(sigCtx)
+	if err != nil {
+		return nil, err
+	}
 
 	efva.AuthInfo.Header.Length += uint32(len(detachedSignature))
 	efva.AuthInfo.CertData = detachedSignature
-	return efva
+	return efva, nil
 }

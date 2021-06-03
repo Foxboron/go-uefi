@@ -51,12 +51,12 @@ type Attribute struct {
 	Value asn1.RawValue `asn1:"set"`
 }
 
-func MarshalAttributes(attrs []Attribute) []byte {
+func MarshalAttributes(attrs []Attribute) ([]byte, error) {
 	encodedAttributes, err := asn1.Marshal(struct {
 		A []Attribute `asn1:"set"`
 	}{A: attrs})
 	if err != nil {
-		panic("Couldn't marshal attributes for signing")
+		return nil, err
 	}
 	//For clarity: The IMPLICIT [0] tag in
 	//the authenticatedAttributes field is not part of the Attributes
@@ -66,7 +66,7 @@ func MarshalAttributes(attrs []Attribute) []byte {
 	//value.)
 	var raw asn1.RawValue
 	asn1.Unmarshal(encodedAttributes, &raw)
-	return raw.Bytes
+	return raw.Bytes, nil
 }
 
 type SpcIndirectDataContentPe struct {
@@ -196,7 +196,7 @@ type SignerInfo struct {
 	UnauthenticatedAttributes []Attribute `asn1:"optional,omitempty,tag:0"` // We don't use this
 }
 
-func SignData(ctx *SigningContext) []byte {
+func SignData(ctx *SigningContext) ([]byte, error) {
 
 	// This made me wtf.
 	// The message digest is not the content we wan't signed when doing authenticode
@@ -254,11 +254,15 @@ func SignData(ctx *SigningContext) []byte {
 			Value: asn1.RawValue{Tag: 17, IsCompound: true, Bytes: asn1Value}, // 17 == SET tag
 		})
 	}
-	h.Write(MarshalAttributes(attr))
+	bAttr, err := MarshalAttributes(attr)
+	if err != nil {
+		return nil, err
+	}
+	h.Write(bAttr)
 
 	sig, err := ctx.Key.Sign(rand.Reader, h.Sum(nil), crypto.SHA256)
 	if err != nil {
-		log.Fatal(err)
+		return nil, err
 	}
 	s := SignerInfo{
 		Version: 1,
@@ -290,13 +294,13 @@ func SignData(ctx *SigningContext) []byte {
 		if err != nil {
 			log.Fatal(err)
 		}
-		return b
+		return b, nil
 	} else {
 		b, err := asn1.Marshal(ss)
 		if err != nil {
 			log.Fatal(err)
 		}
-		return b
+		return b, nil
 	}
 }
 
@@ -311,8 +315,11 @@ func ParseSignature(buf []byte) *SignedData {
 func VerifySignature(cert *x509.Certificate, buf []byte) (bool, error) {
 	payload := ParseSignature(buf)
 	for _, si := range payload.Content.SignerInfos {
-		sigData := MarshalAttributes(si.AuthenticatedAttributes)
-		err := cert.CheckSignature(x509.SHA256WithRSA, sigData, si.EncryptedDigest)
+		sigData, err := MarshalAttributes(si.AuthenticatedAttributes)
+		if err != nil {
+			return false, err
+		}
+		err = cert.CheckSignature(x509.SHA256WithRSA, sigData, si.EncryptedDigest)
 		if errors.Is(err, rsa.ErrVerification) {
 			continue
 		} else if errors.Is(err, rsa.ErrDecryption) {
