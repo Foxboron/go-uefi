@@ -27,7 +27,7 @@ type EFIGUID struct {
 
 // Pretty print an EFIGUID struct
 func (e *EFIGUID) Format() string {
-	return fmt.Sprintf("%x-%x-%x-%x-%x", e.Data1, e.Data2, e.Data3, e.Data4[:2], e.Data4[2:])
+	return fmt.Sprintf("%08x-%04x-%04x-%04x-%12x", e.Data1, e.Data2, e.Data3, e.Data4[:2], e.Data4[2:])
 }
 
 // Compare two EFIGUID structs
