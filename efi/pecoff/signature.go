@@ -2,7 +2,7 @@ package pecoff
 
 import (
 	"bytes"
-	"crypto/rsa"
+	"crypto"
 	"crypto/x509"
 	"debug/pe"
 	"encoding/binary"
@@ -13,13 +13,12 @@ import (
 	"github.com/pkg/errors"
 )
 
-func CreateSignature(ctx *PECOFFSigningContext, Cert *x509.Certificate, Key *rsa.PrivateKey) ([]byte, error) {
-
+func CreateSignature(ctx *PECOFFSigningContext, Cert *x509.Certificate, Key crypto.Signer) ([]byte, error) {
 	sigCtx := &pkcs7.SigningContext{
-		Cert:     Cert,
-		Key:      Key,
-		SigData:  ctx.SigData.Bytes(),
-		Indirect: true,
+		Cert:      Cert,
+		KeySigner: Key,
+		SigData:   ctx.SigData.Bytes(),
+		Indirect:  true,
 	}
 	sd, err := pkcs7.SignData(sigCtx)
 	if err != nil {

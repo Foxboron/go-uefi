@@ -16,10 +16,11 @@ import (
 )
 
 type SigningContext struct {
-	Cert     *x509.Certificate
-	Key      *rsa.PrivateKey
-	SigData  []byte
-	Indirect bool
+	Cert      *x509.Certificate
+	Key       *rsa.PrivateKey
+	KeySigner crypto.Signer
+	SigData   []byte
+	Indirect  bool
 }
 
 // This code is canabalized from the mozille pkcs7 library
@@ -260,7 +261,7 @@ func SignData(ctx *SigningContext) ([]byte, error) {
 	}
 	h.Write(bAttr)
 
-	sig, err := ctx.Key.Sign(rand.Reader, h.Sum(nil), crypto.SHA256)
+	sig, err := ctx.KeySigner.Sign(rand.Reader, h.Sum(nil), crypto.SHA256)
 	if err != nil {
 		return nil, err
 	}

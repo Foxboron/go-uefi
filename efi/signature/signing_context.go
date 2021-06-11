@@ -2,7 +2,7 @@ package signature
 
 import (
 	"bytes"
-	"crypto/rsa"
+	"crypto"
 	"crypto/x509"
 	"encoding/binary"
 	"log"
@@ -15,7 +15,7 @@ import (
 // Handles the values we use for EFI Variable signatures
 type EFIVariableSigningContext struct {
 	Cert    *x509.Certificate
-	Key     *rsa.PrivateKey
+	Key     crypto.Signer
 	Varname []byte
 	Attr    attributes.Attributes
 	Guid    util.EFIGUID
@@ -48,10 +48,10 @@ func NewSignedEFIVariable(ctx *EFIVariableSigningContext) (*EFIVariableAuthentic
 	}
 
 	sigCtx := &pkcs7.SigningContext{
-		Cert:     ctx.Cert,
-		Key:      ctx.Key,
-		SigData:  buf.Bytes(),
-		Indirect: false,
+		Cert:      ctx.Cert,
+		KeySigner: ctx.Key,
+		SigData:   buf.Bytes(),
+		Indirect:  false,
 	}
 
 	detachedSignature, err := pkcs7.SignData(sigCtx)
