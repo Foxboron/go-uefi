@@ -38,15 +38,22 @@ func TestParseCertificate(t *testing.T) {
 	cert, key := InitCert()
 
 	ctx := &SigningContext{
-		Cert:     cert,
-		Key:      key,
-		SigData:  []byte{0x00, 0x01},
-		Indirect: true,
+		Cert:      cert,
+		Key:       key,
+		KeySigner: key,
+		SigData:   []byte{0x00, 0x01},
+		Indirect:  true,
 	}
 
 	buf, err := SignData(ctx)
 	if err != nil {
 		t.Fail()
 	}
-	VerifySignature(ctx, buf)
+	ok, err := VerifySignature(ctx, buf)
+	if err != nil {
+		t.Fatalf(err.Error())
+	}
+	if !ok {
+		t.Fatalf("failed signature verification")
+	}
 }
