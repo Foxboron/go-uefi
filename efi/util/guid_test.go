@@ -73,3 +73,21 @@ func TestParseBytesToGuid(t *testing.T) {
 		}
 	}
 }
+
+func TestParseFormatRoundTrip(t *testing.T) {
+	input := "8be4df61-93ca-11d2-aa0d-00e098032b8c"
+	guid := StringToGUID(input)
+
+	if guid.Format() != input {
+		t.Errorf("GUID failed round trip: Got %s, wanted %s", guid.Format(), input)
+	}
+}
+
+func TestParseFormatRoundTripWithLeadingZero(t *testing.T) {
+	input := "4a67b082-0a4c-41cf-b6c7-440b29bb8c4f"
+	guid := StringToGUID(input)
+
+	if guid.Format() != input {
+		t.Errorf("GUID failed round trip: Got %s, wanted %s", guid.Format(), input)
+	}
+}
