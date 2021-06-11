@@ -42,10 +42,12 @@ func main() {
 		os.Exit(1)
 	}
 	for _, signature := range sigs {
-		if ok, _ := pkcs7.VerifySignature(x509Cert, signature.Certificate); !ok {
-			fmt.Println("Invalid signature!")
-			os.Exit(1)
+		if ok, _ := pkcs7.VerifySignature(x509Cert, signature.Certificate); ok {
+			goto valid
 		}
 	}
+	fmt.Println("Invalid")
+	os.Exit(1)
+valid:
 	fmt.Println("Valid signature!")
 }
