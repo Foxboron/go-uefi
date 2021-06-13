@@ -183,3 +183,21 @@ func WriteEFIVariable(variable string, buf []byte) error {
 	}
 	return nil
 }
+
+// Return the boot entry which is currently booted.
+func GetCurrentlyBootedEntry() (string, error) {
+	_, data, err := attributes.ReadEfivarsWithGuid(
+		"LoaderEntrySelected",
+		*util.StringToGUID("4a67b082-0a4c-41cf-b6c7-440b29bb8c4f"),
+	)
+	if err != nil {
+		return "", err
+	}
+
+	name, err := attributes.ParseUtf16Var(data)
+	if err != nil {
+		return "", err
+	}
+
+	return name, nil
+}
