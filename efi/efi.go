@@ -194,7 +194,7 @@ func GetCurrentlyBootedEntry() (string, error) {
 		return "", err
 	}
 
-	name, err := attributes.ParseUtf16Var(data)
+	name, err := util.ParseUtf16Var(data)
 	if err != nil {
 		return "", err
 	}
