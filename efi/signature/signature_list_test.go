@@ -143,6 +143,62 @@ func TestSiglist(t *testing.T) {
 	}
 }
 
+func TestSiglistRemove(t *testing.T) {
+	sl := NewSignatureList(CERT_SHA256_GUID)
+	for _, sig := range sigdata {
+		sl.AppendBytes(sig.Owner, sig.Data)
+	}
+	err := sl.RemoveSignature(sigdata[0])
+	if err != nil {
+		t.Error(err)
+	}
+	if len(sl.Signatures) != 2 {
+		t.Fatal("remove: number of signatures wrong")
+	}
+	if sl.Size != 48 {
+		t.Fatal("remove: size incorrect")
+	}
+	if sl.ListSize != 124 {
+		t.Fatal("remove: list size incorrect")
+	}
+}
+
+func TestSiglistRemoveSame(t *testing.T) {
+	sl := NewSignatureList(CERT_SHA256_GUID)
+	for _, sig := range sigdata {
+		sl.AppendBytes(sig.Owner, sig.Data)
+	}
+	sl.RemoveSignature(sigdata[0])
+	// Try remove the same sigdata, should give error
+	err := sl.RemoveSignature(sigdata[0])
+	if err == nil {
+		t.Error(err)
+	}
+}
+
+func TestSiglistRemoveAll(t *testing.T) {
+	sl := NewSignatureList(CERT_SHA256_GUID)
+	for _, sig := range sigdata {
+		sl.AppendBytes(sig.Owner, sig.Data)
+	}
+	var err error
+	for _, sig := range sigdata {
+		err = sl.RemoveSignature(sig)
+	}
+	if err != nil {
+		t.Error(err)
+	}
+	if len(sl.Signatures) != 0 {
+		t.Fatal("remove: number of signatures wrong")
+	}
+	if sl.Size != 0 {
+		t.Fatal("remove: size incorrect")
+	}
+	if sl.ListSize != 28 {
+		t.Fatal("remove: list size incorrect")
+	}
+}
+
 func TestSiglistExists(t *testing.T) {
 	sl1 := NewSignatureList(CERT_SHA256_GUID)
 	for _, sig := range sigdata {

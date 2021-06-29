@@ -6,6 +6,7 @@ import (
 	"encoding/pem"
 	"io"
 	"log"
+	"reflect"
 
 	"github.com/foxboron/go-uefi/efi/util"
 	"github.com/pkg/errors"
@@ -120,6 +121,7 @@ type SignatureList struct {
 // SignatureSize + sizeof(SignatureType) + sizeof(uint32)*3
 const SizeofSignatureList uint32 = util.SizeofEFIGUID + 4 + 4 + 4
 
+var ErrNotFoundSigData = errors.New("signature data not found")
 var ErrSigDataExists = errors.New("signature data exists already")
 
 func NewSignatureList(certtype util.EFIGUID) *SignatureList {
@@ -197,6 +199,24 @@ func (sl *SignatureList) AppendBytes(owner util.EFIGUID, data []byte) error {
 
 func (sl *SignatureList) AppendSignature(s SignatureData) error {
 	return sl.AppendBytes(s.Owner, s.Data)
+}
+
+func (sl *SignatureList) RemoveBytes(owner util.EFIGUID, data []byte) error {
+	ok, index := sl.Exists(&SignatureData{owner, data})
+	if !ok {
+		return ErrNotFoundSigData
+	}
+	if len(sl.Signatures) == 1 {
+		*sl = *NewSignatureList(sl.SignatureType)
+		return nil
+	}
+	sl.Signatures = append(sl.Signatures[:index], sl.Signatures[index+1:]...)
+	sl.ListSize -= sl.Size
+	return nil
+}
+
+func (sl *SignatureList) RemoveSignature(s SignatureData) error {
+	return sl.RemoveBytes(s.Owner, s.Data)
 }
 
 // Writes a signature list
