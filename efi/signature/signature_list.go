@@ -89,7 +89,7 @@ func ReadSignatureData(f io.Reader, size uint32) (*SignatureData, error) {
 	if err := binary.Read(f, binary.LittleEndian, &s.Owner); err != nil {
 		return &SignatureData{}, errors.Wrapf(err, "could not read Signature Data")
 	}
-	data := make([]uint8, size-16) // Subtract the size of Owner
+	data := make([]uint8, size-util.SizeofEFIGUID) // Subtract the size of Owner
 	if err := binary.Read(f, binary.LittleEndian, &data); err != nil {
 		return &SignatureData{}, errors.Wrapf(err, "Couldn't read Signature Data")
 	}
@@ -117,8 +117,8 @@ type SignatureList struct {
 	Signatures      []SignatureData // SignatureData List
 }
 
-// SignatureSize + sizeof(SignatureType) + sizeof(uint32)*4
-const SizeofSignatureList uint32 = 16 + 4 + 4 + 4
+// SignatureSize + sizeof(SignatureType) + sizeof(uint32)*3
+const SizeofSignatureList uint32 = util.SizeofEFIGUID + 4 + 4 + 4
 
 func NewSignatureList(certtype util.EFIGUID) *SignatureList {
 	return &SignatureList{
@@ -146,7 +146,7 @@ func (sl *SignatureList) AppendBytes(owner util.EFIGUID, data []byte) error {
 		}
 	}
 	sl.Signatures = append(sl.Signatures, SignatureData{Owner: owner, Data: data})
-	sl.Size = uint32(len(data)) + 16
+	sl.Size = uint32(len(data)) + util.SizeofEFIGUID
 	sl.ListSize += sl.Size
 	return nil
 }

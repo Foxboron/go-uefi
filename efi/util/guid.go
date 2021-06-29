@@ -25,6 +25,8 @@ type EFIGUID struct {
 	Data4 [8]uint8
 }
 
+const SizeofEFIGUID uint32 = 16
+
 // Pretty print an EFIGUID struct
 func (e *EFIGUID) Format() string {
 	return fmt.Sprintf("%08x-%04x-%04x-%04x-%12x", e.Data1, e.Data2, e.Data3, e.Data4[:2], e.Data4[2:])

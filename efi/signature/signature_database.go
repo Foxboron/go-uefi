@@ -16,7 +16,7 @@ func (sd *SignatureDatabase) Append(certtype util.EFIGUID, owner util.EFIGUID, d
 		if !util.CmpEFIGUID(l.SignatureType, certtype) {
 			continue
 		}
-		size := uint32(len(data)) + 16
+		size := uint32(len(data)) + util.SizeofEFIGUID
 		if size != l.Size {
 			continue
 		}

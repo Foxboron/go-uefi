@@ -86,7 +86,7 @@ type WinCertificateUEFIGUID struct {
 	CertData []uint8
 }
 
-const SizeofWinCertificateUEFIGUID = SizeofWINCertificate + 16
+const SizeofWinCertificateUEFIGUID = SizeofWINCertificate + util.SizeofEFIGUID
 
 func ReadWinCertificateUEFIGUID(f io.Reader) (WinCertificateUEFIGUID, error) {
 	var cert WinCertificateUEFIGUID
