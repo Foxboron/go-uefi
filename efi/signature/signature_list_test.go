@@ -30,18 +30,17 @@ var (
 
 func TestParseSignatureListVars(t *testing.T) {
 	for _, path := range EfivarsTestFiles {
-		s, _ := attributes.ReadEfivarsFile(path)
+		attrs, data, _ := attributes.ReadEfivarsFile(path)
 		var pkflags attributes.Attributes
 		pkflags |= attributes.EFI_VARIABLE_NON_VOLATILE
 		pkflags |= attributes.EFI_VARIABLE_BOOTSERVICE_ACCESS
 		pkflags |= attributes.EFI_VARIABLE_RUNTIME_ACCESS
 		pkflags |= attributes.EFI_VARIABLE_TIME_BASED_AUTHENTICATED_WRITE_ACCESS
-		if (pkflags & s.Attributes) != pkflags {
+		if (pkflags & attrs) != pkflags {
 			t.Errorf("Incorrect bitmask")
 		}
 
-		f := bytes.NewReader(s.Data)
-		c, err := ReadSignatureList(f)
+		c, err := ReadSignatureList(data)
 		if err != nil {
 			t.Fatal(err)
 		}
@@ -96,15 +95,14 @@ func TestParseSignatureListHashFile(t *testing.T) {
 
 func TestParseSignatureSupport(t *testing.T) {
 	for _, path := range SigsupportTestFiles {
-		s, _ := attributes.ReadEfivarsFile(path)
+		attrs, data, _ := attributes.ReadEfivarsFile(path)
 		var pkflags attributes.Attributes
 		pkflags |= attributes.EFI_VARIABLE_BOOTSERVICE_ACCESS
 		pkflags |= attributes.EFI_VARIABLE_RUNTIME_ACCESS
-		if (pkflags & s.Attributes) != pkflags {
+		if (pkflags & attrs) != pkflags {
 			t.Errorf("Incorrect bitmask")
 		}
-		f := bytes.NewReader(s.Data)
-		guids, err := GetSupportedSignatures(f)
+		guids, err := GetSupportedSignatures(data)
 		if err != nil {
 			t.Fatal(err)
 		}
