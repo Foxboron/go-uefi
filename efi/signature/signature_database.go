@@ -10,6 +10,27 @@ import (
 // SignatureDatabase is a list of EFI signature lists
 type SignatureDatabase []*SignatureList
 
+// Checks if all signatures in a list is present in the signature database
+func (sd *SignatureDatabase) SigDataExists(certtype util.EFIGUID, sigdata *SignatureData) bool {
+	for _, sdsiglist := range *sd {
+		if ok, _ := sdsiglist.Exists(sigdata); ok {
+			return true
+		}
+	}
+	return false
+}
+
+// Checks if all signatures in a list is present in the signature database
+func (sd *SignatureDatabase) Exists(certtype util.EFIGUID, siglist *SignatureList) bool {
+	for _, sdsiglist := range *sd {
+		if !sdsiglist.CmpHeader(siglist) {
+			continue
+		}
+		return sdsiglist.ExistsInList(siglist)
+	}
+	return false
+}
+
 // Appends the raw signature values to the database
 func (sd *SignatureDatabase) Append(certtype util.EFIGUID, owner util.EFIGUID, data []byte) error {
 	for _, l := range *sd {

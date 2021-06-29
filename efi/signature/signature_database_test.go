@@ -22,3 +22,27 @@ func TestSigdatabase(t *testing.T) {
 		t.Fatal("number of signatures wrong")
 	}
 }
+
+func TestSigdatabaseExists(t *testing.T) {
+	sigdb := SignatureDatabase{}
+	for _, sig := range sigdata {
+		sigdb.AppendSignature(CERT_SHA256_GUID, &sig)
+	}
+	sl := NewSignatureList(CERT_SHA256_GUID)
+	for _, sig := range sigdata {
+		sl.AppendBytes(sig.Owner, sig.Data)
+	}
+	if !sigdb.Exists(CERT_SHA256_GUID, sl) {
+		t.Fatalf("exists: siglist is not in database")
+	}
+}
+
+func TestSigdatabaseSigdataExists(t *testing.T) {
+	sigdb := SignatureDatabase{}
+	for _, sig := range sigdata {
+		sigdb.AppendSignature(CERT_SHA256_GUID, &sig)
+	}
+	if !sigdb.SigDataExists(CERT_SHA256_GUID, &sigdata[0]) {
+		t.Fatalf("exists: siglist is not in database")
+	}
+}
