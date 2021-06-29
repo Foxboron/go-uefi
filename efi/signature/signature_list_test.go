@@ -142,3 +142,27 @@ func TestSiglist(t *testing.T) {
 		t.Fatal("number of signatures wrong")
 	}
 }
+
+func TestSiglistExists(t *testing.T) {
+	sl1 := NewSignatureList(CERT_SHA256_GUID)
+	for _, sig := range sigdata {
+		sl1.AppendBytes(sig.Owner, sig.Data)
+	}
+	sl2 := NewSignatureList(CERT_SHA256_GUID)
+	for _, sig := range sigdata {
+		sl2.AppendBytes(sig.Owner, sig.Data)
+	}
+	if !sl1.ExistsInList(sl2) {
+		t.Fatal("exists: not the same list")
+	}
+}
+
+func TestSiglistSigDataExists(t *testing.T) {
+	sl := NewSignatureList(CERT_SHA256_GUID)
+	for _, sig := range sigdata {
+		sl.AppendBytes(sig.Owner, sig.Data)
+	}
+	if ok, _ := sl.Exists(&sigdata[0]); !ok {
+		t.Fatal("exists: sigdata is not in the list")
+	}
+}

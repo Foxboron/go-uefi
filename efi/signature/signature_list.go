@@ -120,6 +120,8 @@ type SignatureList struct {
 // SignatureSize + sizeof(SignatureType) + sizeof(uint32)*3
 const SizeofSignatureList uint32 = util.SizeofEFIGUID + 4 + 4 + 4
 
+var ErrSigDataExists = errors.New("signature data exists already")
+
 func NewSignatureList(certtype util.EFIGUID) *SignatureList {
 	return &SignatureList{
 		SignatureType:   certtype,
@@ -131,7 +133,49 @@ func NewSignatureList(certtype util.EFIGUID) *SignatureList {
 	}
 }
 
+// Compare the signature lists header to see if they are the same type of list
+// This is usefull if you wonder if you can merge the lists or not
+func (sl *SignatureList) CmpHeader(siglist *SignatureList) bool {
+	if !util.CmpEFIGUID(sl.SignatureType, siglist.SignatureType) {
+		return false
+	}
+	if sl.Size != siglist.Size {
+		return false
+	}
+	if !reflect.DeepEqual(sl.SignatureHeader, siglist.SignatureHeader) {
+		return false
+	}
+	return true
+}
+
+// Check if signature exists in the signature list
+// Return true if it does along with the index
+func (sl *SignatureList) Exists(sigdata *SignatureData) (bool, int) {
+	for index, sigs := range sl.Signatures {
+		if !util.CmpEFIGUID(sigs.Owner, sigdata.Owner) {
+			continue
+		}
+		if !bytes.Equal(sigs.Data, sigdata.Data) {
+			continue
+		}
+		return true, index
+	}
+	return false, 0
+}
+
+func (sl *SignatureList) ExistsInList(siglist *SignatureList) bool {
+	for _, item := range siglist.Signatures {
+		if ok, _ := sl.Exists(&item); !ok {
+			return false
+		}
+	}
+	return true
+}
+
 func (sl *SignatureList) AppendBytes(owner util.EFIGUID, data []byte) error {
+	if ok, _ := sl.Exists(&SignatureData{owner, data}); ok {
+		return ErrSigDataExists
+	}
 	switch sl.SignatureType {
 	case CERT_X509_GUID:
 		// Check if the cert is PEM encoded
