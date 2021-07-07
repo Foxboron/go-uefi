@@ -38,13 +38,16 @@ func PECOFFChecksum(peFile []byte) *PECOFFSigningContext {
 
 	var SizeOfHeaders int64
 	var dd4start int64
+	var ddEntry pe.DataDirectory
 	switch optHeader := f.OptionalHeader.(type) {
 	case *pe.OptionalHeader32:
 		dd4start = offset + 128
 		SizeOfHeaders = int64(optHeader.SizeOfHeaders)
+		ddEntry = optHeader.DataDirectory[4]
 	case *pe.OptionalHeader64:
 		dd4start = offset + 144
 		SizeOfHeaders = int64(optHeader.SizeOfHeaders)
+		ddEntry = optHeader.DataDirectory[4]
 	}
 
 	// Finds where the checksum start
@@ -91,8 +94,8 @@ func PECOFFChecksum(peFile []byte) *PECOFFSigningContext {
 	// lastSection := len(f.Sections) - 1
 	// sectionEnd := f.Sections[lastSection].Offset + f.Sections[lastSection].Size
 	sectionEnd := sectionOffset + sectionSize
-	addr := f.OptionalHeader.(*pe.OptionalHeader64).DataDirectory[4].VirtualAddress
-	certSize := f.OptionalHeader.(*pe.OptionalHeader64).DataDirectory[4].Size
+	addr := ddEntry.VirtualAddress
+	certSize := ddEntry.Size
 
 	if certSize > 0 {
 		hashBuffer.Write(peFile[sectionEnd:addr])
