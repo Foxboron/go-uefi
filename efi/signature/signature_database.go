@@ -44,11 +44,15 @@ func (sd *SignatureDatabase) Append(certtype util.EFIGUID, owner util.EFIGUID, d
 		if size != l.Size {
 			continue
 		}
-		l.AppendSignature(SignatureData{Owner: owner, Data: data})
+		if err := l.AppendSignature(SignatureData{Owner: owner, Data: data}); err != nil {
+			return err
+		}
 		return nil
 	}
 	sl := NewSignatureList(certtype)
-	sl.AppendBytes(owner, data)
+	if err := sl.AppendBytes(owner, data); err != nil {
+		return err
+	}
 	*sd = append(*sd, sl)
 	return nil
 }
