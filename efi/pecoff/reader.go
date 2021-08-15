@@ -19,7 +19,7 @@ func GetSignatures(pefile []byte) ([]*signature.WINCertificate, error) {
 	for reader.Len() > signature.SizeofWINCertificate {
 		sig, err := signature.ReadWinCertificate(reader)
 		if err != nil {
-			return []*signature.WINCertificate{}, errors.Wrap(err, "")
+			return []*signature.WINCertificate{}, errors.Wrap(err, "couldn't parse signature")
 		}
 		signatures = append(signatures, &sig)
 

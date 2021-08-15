@@ -14,12 +14,21 @@ import (
 )
 
 func CreateSignature(ctx *PECOFFSigningContext, Cert *x509.Certificate, Key crypto.Signer) ([]byte, error) {
+	// Tianocore demands that we pad to 8 bytes
+	// They also need to be added to the checksum file
+	// We move this out of the checksum function since this padding is
+	// only applied to the checksums used in the signature.
+	paddingBytes, _ := PaddingBytes(len(ctx.PEFile), 8)
+	ctx.PEFile = append(ctx.PEFile, paddingBytes...)
+	ctx.SigData.Write(paddingBytes)
+
 	sigCtx := &pkcs7.SigningContext{
 		Cert:      Cert,
 		KeySigner: Key,
 		SigData:   ctx.SigData.Bytes(),
 		Indirect:  true,
 	}
+
 	sd, err := pkcs7.SignData(sigCtx)
 	if err != nil {
 		return nil, err
@@ -48,7 +57,6 @@ func AppendToBinary(PEFile *PECOFFSigningContext, sig []byte) ([]byte, error) {
 	if err := binary.Read(bytes.NewBuffer(buf), binary.LittleEndian, &datadir); err != nil {
 		return nil, fmt.Errorf("there isn't any DataDirectory struct in the offset")
 	}
-
 	if datadir.VirtualAddress != 0 && datadir.Size != 0 {
 		datadir = pe.DataDirectory{
 			VirtualAddress: datadir.VirtualAddress,
@@ -57,7 +65,7 @@ func AppendToBinary(PEFile *PECOFFSigningContext, sig []byte) ([]byte, error) {
 	} else {
 		// Only signature we found
 		datadir = pe.DataDirectory{
-			VirtualAddress: uint32(PEFile.OriginalSize),
+			VirtualAddress: uint32(len(PEFile.PEFile)),
 			Size:           info.Length,
 		}
 	}

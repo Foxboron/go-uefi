@@ -7,21 +7,20 @@ import (
 	"debug/pe"
 	"encoding/binary"
 	"log"
+	"sort"
 )
 
 type PECOFFSigningContext struct {
-	Cert         *x509.Certificate
-	Key          *rsa.PrivateKey
-	DD4Start     int64
-	DD4End       int64
-	OriginalSize int
-	PEFile       []byte
-	SigData      *bytes.Buffer
-	Indirect     bool
+	Cert     *x509.Certificate
+	Key      *rsa.PrivateKey
+	DD4Start int64
+	DD4End   int64
+	PEFile   []byte
+	SigData  *bytes.Buffer
+	Indirect bool
 }
 
 func PECOFFChecksum(peFile []byte) *PECOFFSigningContext {
-
 	buf := bytes.NewReader(peFile)
 	f, err := pe.NewFile(buf)
 	if err != nil {
@@ -65,55 +64,41 @@ func PECOFFChecksum(peFile []byte) *PECOFFSigningContext {
 	// Read rests of the opt data, if there is anything
 	endOfOptHeader := offset + int64(f.SizeOfOptionalHeader)
 	hashBuffer.Write(peFile[dd4end:endOfOptHeader])
-	// fmt.Printf("%x\n", peFile[dd4start:dd4end])
 
 	// Read from the start of the section (which is at the end of the Optional Header),
 	// until the entire header has been read
 	hashBuffer.Write(peFile[endOfOptHeader:SizeOfHeaders])
 
-	// var offset uint32
-	var sectionSize uint32
-	var sectionOffset uint32
-	for _, sec := range f.Sections {
+	sections := f.Sections
+	sort.Slice(sections, func(i, j int) bool { return sections[i].Offset < sections[j].Offset })
+
+	sumOfBytes := SizeOfHeaders
+	for _, sec := range sections {
+		if sec.Size == 0 {
+			continue
+		}
 		buf, err := sec.Data()
 		if err != nil {
 			log.Fatal(err)
 		}
 		hashBuffer.Write(buf)
-		// Less complicated... I think
-		// Grab the largest offset
-		// which should be the end of our file
-		if sec.Offset >= sectionOffset {
-			sectionOffset = sec.Offset
-			sectionSize = sec.Size
-		}
+		sumOfBytes += int64(sec.Size)
 	}
 
+	fileSize := int64(len(peFile))
+	if fileSize > sumOfBytes {
+		length := fileSize - sumOfBytes - int64(ddEntry.Size)
+		hashBuffer.Write(peFile[sumOfBytes : sumOfBytes+length])
+	}
 	// We actually know the Offset from the sections
 	// But I CBA to do the math again
 	// lastSection := len(f.Sections) - 1
 	// sectionEnd := f.Sections[lastSection].Offset + f.Sections[lastSection].Size
-	sectionEnd := sectionOffset + sectionSize
-	addr := ddEntry.VirtualAddress
-	certSize := ddEntry.Size
-
-	if certSize > 0 {
-		hashBuffer.Write(peFile[sectionEnd:addr])
-	} else {
-		hashBuffer.Write(peFile[sectionEnd:])
-	}
-
-	// Tianocore demands that we pad to 8 bytes
-	// They also need to be added to the checksum file
-	paddingBytes, _ := PaddingBytes(len(peFile), 8)
-	peFile = append(peFile, paddingBytes...)
-	hashBuffer.Write(paddingBytes)
 
 	return &PECOFFSigningContext{
-		PEFile:       peFile,
-		SigData:      hashBuffer,
-		OriginalSize: len(peFile),
-		DD4Start:     dd4start,
-		DD4End:       dd4end,
+		PEFile:   peFile,
+		SigData:  hashBuffer,
+		DD4Start: dd4start,
+		DD4End:   dd4end,
 	}
 }
