@@ -30,9 +30,17 @@ type USBMessagingDevicePath struct {
 	Interface           uint8
 }
 
+func (u USBMessagingDevicePath) Format() string {
+	return "No format"
+}
+
 type VendorMessagingDevicePath struct {
 	EFIDevicePath
 	Guid util.EFIGUID
+}
+
+func (v VendorMessagingDevicePath) Format() string {
+	return "No format"
 }
 
 func ParseMessagingDevicePath(f io.Reader, efi *EFIDevicePath) EFIDevicePaths {

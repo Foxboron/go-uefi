@@ -1,7 +1,6 @@
 package device
 
 import (
-	"bytes"
 	"io/ioutil"
 	"log"
 	"testing"

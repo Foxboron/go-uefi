@@ -24,6 +24,10 @@ type PCIDevicePath struct {
 	Device   [1]byte
 }
 
+func (p PCIDevicePath) Format() string {
+	return "No format"
+}
+
 func ParseHardwareDevicePath(f io.Reader, efi *EFIDevicePath) EFIDevicePaths {
 	switch efi.SubType {
 	case HardwarePCI:

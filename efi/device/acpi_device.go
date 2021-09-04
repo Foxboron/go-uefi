@@ -20,8 +20,8 @@ type ACPIDevicePath struct {
 	UID [4]byte
 }
 
-type ExpandedACPIDevicePath struct {
-	EFIDevicePath
+func (a ACPIDevicePath) Format() string {
+	return "No format"
 }
 
 func ParseACPIDevicePath(f io.Reader, efi *EFIDevicePath) EFIDevicePaths {

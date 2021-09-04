@@ -49,7 +49,7 @@ func TestParseCertificate(t *testing.T) {
 	if err != nil {
 		t.Fail()
 	}
-	ok, err := VerifySignature(ctx, buf)
+	ok, err := VerifySignature(cert, buf)
 	if err != nil {
 		t.Fatalf(err.Error())
 	}
