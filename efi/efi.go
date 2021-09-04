@@ -113,7 +113,7 @@ func GetKEK() ([]*signature.SignatureList, error) {
 	return siglist, nil
 }
 
-func Getdb() ([]*signature.SignatureList, error) {
+func Getdb() (*signature.SignatureDatabase, error) {
 	efivar := "db"
 	attr, data, err := attributes.ReadEfivars(efivar)
 	if err != nil {
@@ -126,7 +126,7 @@ func Getdb() ([]*signature.SignatureList, error) {
 	if err != nil {
 		return nil, errors.Wrapf(err, "can't parse database key")
 	}
-	return siglist, nil
+	return &siglist, nil
 }
 
 func SignEFIExecutable(key *rsa.PrivateKey, cert *x509.Certificate, file []byte) ([]byte, error) {

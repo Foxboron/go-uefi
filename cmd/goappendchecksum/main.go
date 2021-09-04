@@ -63,7 +63,7 @@ func main() {
 		log.Fatal(err)
 	}
 	buf := new(bytes.Buffer)
-	signature.WriteSignatureDatabase(buf, db)
+	signature.WriteSignatureDatabase(buf, *db)
 	bufSomething, err := efi.SignEFIVariable(keyFile, certFile, "db", buf.Bytes())
 	if err != nil {
 		log.Fatal(err)

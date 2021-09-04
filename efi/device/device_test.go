@@ -17,8 +17,7 @@ func TestAbs(t *testing.T) {
 		log.Fatal(err)
 	}
 	for _, file := range files {
-		s, _ := attributes.ReadEfivars(file.Name()[:8])
-		f := bytes.NewReader(s.Data)
+		_, f, _ := attributes.ReadEfivars(file.Name()[:8])
 		ParseEFILoadOption(f)
 		ParseDevicePath(f)
 	}
