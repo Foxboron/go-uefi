@@ -17,3 +17,9 @@ build: gosiglist
 
 gosiglist: $(SOURCES)
 	go build -o $@ ./cmd/$@/...
+
+.PHONY: lint
+lint:
+	go vet ./...
+	staticcheck ./...
+
