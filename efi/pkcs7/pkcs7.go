@@ -204,6 +204,7 @@ func SignData(ctx *SigningContext) ([]byte, error) {
 	// We want to sign the entire indirect object, which contains the sums
 	var messageDigest []byte
 	var ci ContentInfo
+	var err error
 	if ctx.Indirect {
 		var indirect SpcIndirectDataContentPe
 		indirect.Data.Type = OIDSpcPEImageDataObjID
@@ -214,15 +215,21 @@ func SignData(ctx *SigningContext) ([]byte, error) {
 		indirect.Data.Value.File.File.Unicode = string([]byte{0x00, 0x3c, 0x00, 0x3c, 0x00, 0x3c, 0x00, 0x4f, 0x00, 0x62,
 			0x00, 0x73, 0x00, 0x6f, 0x00, 0x6c, 0x00, 0x65, 0x00, 0x74,
 			0x00, 0x65, 0x00, 0x3e, 0x00, 0x3e, 0x00, 0x3E})
-		ci, _ = NewContentInfo(OIDSpcIndirectDataContent, indirect)
+		ci, err = NewContentInfo(OIDSpcIndirectDataContent, indirect)
+		if err != nil {
+			return nil, err
+		}
 		buf, err := ci.Bytes()
 		if err != nil {
-			log.Fatal(err)
+			return nil, err
 		}
 		sum = sha256.Sum256(buf)
 		messageDigest = sum[:]
 	} else {
-		ci, _ = NewContentInfo(OIDData, nil)
+		ci, err = NewContentInfo(OIDData, nil)
+		if err != nil {
+			return nil, err
+		}
 		sum := sha256.Sum256(ctx.SigData)
 		messageDigest = sum[:]
 	}
@@ -248,7 +255,7 @@ func SignData(ctx *SigningContext) ([]byte, error) {
 	} {
 		asn1Value, err := asn1.Marshal(v.Value)
 		if err != nil {
-			log.Fatal(err)
+			return nil, err
 		}
 		attr = append(attr, Attribute{
 			Type:  v.Type,
@@ -293,13 +300,13 @@ func SignData(ctx *SigningContext) ([]byte, error) {
 		}
 		b, err := asn1.Marshal(Payload)
 		if err != nil {
-			log.Fatal(err)
+			return nil, err
 		}
 		return b, nil
 	} else {
 		b, err := asn1.Marshal(ss)
 		if err != nil {
-			log.Fatal(err)
+			return nil, err
 		}
 		return b, nil
 	}
