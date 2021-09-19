@@ -13,6 +13,10 @@ type SignatureDatabase []*SignatureList
 
 var ErrNotFoundSigList = errors.New("signature list not found")
 
+func NewSignatureDatabase() *SignatureDatabase {
+	return &SignatureDatabase{}
+}
+
 // Checks if all signatures in a list is present in the signature database
 func (sd *SignatureDatabase) SigDataExists(certtype util.EFIGUID, sigdata *SignatureData) bool {
 	for _, sdsiglist := range *sd {
@@ -67,6 +71,13 @@ func (sd *SignatureDatabase) AppendSignature(certtype util.EFIGUID, sl *Signatur
 // TODO: Should merge towards a fitting list?
 func (sd *SignatureDatabase) AppendList(sl *SignatureList) {
 	*sd = append(*sd, sl)
+}
+
+// Appends a signature database
+func (sd *SignatureDatabase) AppendDatabase(s *SignatureDatabase) {
+	for _, list := range *s {
+		sd.AppendList(list)
+	}
 }
 
 // Remove the raw signature values to the database
