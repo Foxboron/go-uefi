@@ -102,3 +102,10 @@ func PECOFFChecksum(peFile []byte) *PECOFFSigningContext {
 		DD4End:   dd4end,
 	}
 }
+
+func PaddSigCtx(ctx *PECOFFSigningContext) *PECOFFSigningContext {
+	paddingBytes, _ := PaddingBytes(len(ctx.PEFile), 8)
+	ctx.PEFile = append(ctx.PEFile, paddingBytes...)
+	ctx.SigData.Write(paddingBytes)
+	return ctx
+}
