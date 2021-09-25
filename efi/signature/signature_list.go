@@ -107,6 +107,12 @@ func WriteSignatureData(b io.Writer, s SignatureData) {
 	}
 }
 
+func (sd *SignatureData) Bytes() []byte {
+	buf := new(bytes.Buffer)
+	WriteSignatureData(buf, *sd)
+	return buf.Bytes()
+}
+
 // Section 32.4.1 - Signature Database
 // Page 1713
 type SignatureList struct {
@@ -217,6 +223,12 @@ func (sl *SignatureList) RemoveBytes(owner util.EFIGUID, data []byte) error {
 
 func (sl *SignatureList) RemoveSignature(s SignatureData) error {
 	return sl.RemoveBytes(s.Owner, s.Data)
+}
+
+func (sl *SignatureList) Bytes() []byte {
+	buf := new(bytes.Buffer)
+	WriteSignatureList(buf, *sl)
+	return buf.Bytes()
 }
 
 // Writes a signature list

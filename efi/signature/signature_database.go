@@ -1,6 +1,7 @@
 package signature
 
 import (
+	"bytes"
 	"io"
 	"reflect"
 
@@ -130,6 +131,13 @@ func (sd *SignatureDatabase) RemoveList(sl *SignatureList) error {
 		}
 	}
 	return ErrNotFoundSigList
+}
+
+// Serialize the Signature Database into bytes
+func (sd *SignatureDatabase) Bytes() []byte {
+	buf := new(bytes.Buffer)
+	WriteSignatureDatabase(buf, *sd)
+	return buf.Bytes()
 }
 
 // Write a signature database which contains a slice of SignautureLists
