@@ -1,9 +1,9 @@
+//go:build integrations
 // +build integrations
 
 package main
 
 import (
-	"bytes"
 	"os"
 	"testing"
 
@@ -17,9 +17,12 @@ var TestGUID = util.EFIGUID{0xa7717414, 0xc616, 0x4977, [8]uint8{0x01, 0x01, 0x0
 func Enroll(cert, signerKey, signerPem []byte, efivar string) error {
 	c := signature.NewSignatureList(signature.CERT_X509_GUID)
 	c.AppendBytes(TestGUID, cert)
-	buf := new(bytes.Buffer)
-	signature.WriteSignatureList(buf, *c)
-	signedBuf := efi.SignEFIVariable(util.ReadKey(signerKey), util.ReadCert(signerPem), efivar, buf.Bytes())
+	key, _ := util.ReadKey(signerKey)
+	pem, _ := util.ReadCert(signerPem)
+	signedBuf, err := efi.SignEFIVariable(key, pem, efivar, c.Bytes())
+	if err != nil {
+		return err
+	}
 	return efi.WriteEFIVariable(efivar, signedBuf)
 }
 

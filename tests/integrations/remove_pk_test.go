@@ -1,9 +1,9 @@
+//go:build integrations
 // +build integrations
 
 package main
 
 import (
-	"bytes"
 	"os"
 	"testing"
 
@@ -18,17 +18,24 @@ var TestGUID = util.EFIGUID{0xa7717414, 0xc616, 0x4977, [8]uint8{0x01, 0x01, 0x0
 func Enroll(cert, signerKey, signerPem []byte, efivar string) error {
 	c := signature.NewSignatureList(signature.CERT_X509_GUID)
 	c.AppendBytes(TestGUID, cert)
-	buf := new(bytes.Buffer)
-	signature.WriteSignatureList(buf, *c)
-	signedBuf := efi.SignEFIVariable(util.ReadKey(signerKey), util.ReadCert(signerPem), efivar, buf.Bytes())
+	readKey, _ := util.ReadKey(signerKey)
+	readCert, _ := util.ReadCert(signerPem)
+	signedBuf, err := efi.SignEFIVariable(readKey, readCert, efivar, c.Bytes())
+	if err != nil {
+		return err
+	}
 	return efi.WriteEFIVariable(efivar, signedBuf)
 }
 
 func TestRemovePK(t *testing.T) {
 	PKKey, _ := os.ReadFile("/mnt/PK.key")
 	PKPem, _ := os.ReadFile("/mnt/PK.pem")
-
-	signedBuf := efi.SignEFIVariable(util.ReadKey(PKKey), util.ReadCert(PKPem), "PK", []byte{})
+	readKey, _ := util.ReadKey(PKKey)
+	readCert, _ := util.ReadCert(PKPem)
+	signedBuf, err := efi.SignEFIVariable(readKey, readCert, "PK", []byte{})
+	if err != nil {
+		t.Fatal(err)
+	}
 	if err := efi.WriteEFIVariable("PK", signedBuf); err != nil {
 		t.Fatal(err)
 	}
@@ -62,6 +69,7 @@ func TestRotateKeys(t *testing.T) {
 	// KEK -> db -> PK
 	// Where all the new keys are signed by the old Platform key
 
+	// time.Sleep(2 * time.Second)
 	if err := Enroll(KEKPem, PKKeyOld, PKPemOld, "KEK"); err != nil {
 		t.Fatal(err)
 	}

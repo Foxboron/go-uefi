@@ -1,3 +1,4 @@
+//go:build integrations
 // +build integrations
 
 package main
@@ -13,7 +14,7 @@ func TestSecureBootEnabled(t *testing.T) {
 		t.Fatal("not in secure boot mode")
 	}
 
-	if !efi.GetSetupMode() {
-		t.Fatal("not in setup mode")
+	if efi.GetSetupMode() {
+		t.Fatal("in setup mode")
 	}
 }

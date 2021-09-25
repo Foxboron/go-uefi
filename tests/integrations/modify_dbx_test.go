@@ -1,3 +1,4 @@
+//go:build integrations
 // +build integrations
 
 package main
@@ -22,8 +23,8 @@ var sigdata = []signature.SignatureData{
 }
 
 var (
-	Key  = util.ReadKeyFromFile("/mnt/KEK.key")
-	Cert = util.ReadCertFromFile("/mnt/KEK.pem")
+	Key, _  = util.ReadKeyFromFile("/mnt/KEK.key")
+	Cert, _ = util.ReadCertFromFile("/mnt/KEK.pem")
 )
 
 func ReadKeyDB(vars string) (signature.SignatureDatabase, error) {
@@ -39,13 +40,15 @@ func ReadKeyDB(vars string) (signature.SignatureDatabase, error) {
 }
 
 func TestRemoveRewritedbx(t *testing.T) {
-
 	sl := signature.NewSignatureList(signature.CERT_SHA256_GUID)
 	for _, sig := range sigdata {
 		sl.AppendBytes(sig.Owner, sig.Data)
 		buf := new(bytes.Buffer)
 		signature.WriteSignatureList(buf, *sl)
-		signedBuf := efi.SignEFIVariable(Key, Cert, "dbx", buf.Bytes())
+		signedBuf, err := efi.SignEFIVariable(Key, Cert, "dbx", buf.Bytes())
+		if err != nil {
+			t.Error(err)
+		}
 		if err := efi.WriteEFIVariable("dbx", signedBuf); err != nil {
 			t.Fatal(err)
 		}
@@ -65,7 +68,10 @@ func TestRemoveRewritedbx(t *testing.T) {
 }
 
 func TestRemoveDBX(t *testing.T) {
-	signedBuf := efi.SignEFIVariable(Key, Cert, "dbx", []byte{})
+	signedBuf, err := efi.SignEFIVariable(Key, Cert, "dbx", []byte{})
+	if err != nil {
+		t.Fatal(err)
+	}
 	if err := efi.WriteEFIVariable("dbx", signedBuf); err != nil {
 		t.Fatal(err)
 	}
