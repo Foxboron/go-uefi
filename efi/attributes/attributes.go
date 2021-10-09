@@ -1,15 +1,18 @@
 package attributes
 
+// TODO: We should have an index of known vars and GUIDs
+
 import (
 	"bytes"
 	"encoding/binary"
+	"errors"
 	"fmt"
+	"io"
 	"os"
 	"path"
 
-	"github.com/pkg/errors"
-
 	"github.com/foxboron/go-uefi/efi/attr"
+	"github.com/foxboron/go-uefi/efi/fs"
 	"github.com/foxboron/go-uefi/efi/util"
 )
 
@@ -59,21 +62,14 @@ var (
 	}
 )
 
-var Efivars = "/sys/firmware/efi/efivars"
+var (
+	Efivars = "/sys/firmware/efi/efivars"
+)
 
-type EfiVariable struct {
-	Attributes Attributes
-	Data       []byte
-}
-
-func ParseEfivars(f *os.File) (Attributes, *bytes.Buffer, error) {
+func ParseEfivars(f io.Reader, size int) (Attributes, *bytes.Buffer, error) {
 	var attrs Attributes
 	if err := binary.Read(f, binary.LittleEndian, &attrs); err != nil {
-		return 0, nil, errors.Wrap(err, "could not read file")
-	}
-	stat, err := f.Stat()
-	if err != nil {
-		return 0, nil, errors.Wrap(err, "could not stat file descriptor")
+		return 0, nil, fmt.Errorf("could not read file: %w", err)
 	}
 	buf := make([]byte, size-SizeofAttributes)
 	if err := binary.Read(f, binary.LittleEndian, &buf); err != nil {
@@ -82,6 +78,26 @@ func ParseEfivars(f *os.File) (Attributes, *bytes.Buffer, error) {
 	return attrs, bytes.NewBuffer(buf), nil
 }
 
+// For a full path instead of the inferred efivars path
+func ReadEfivarsFile(filename string) (Attributes, *bytes.Buffer, error) {
+	f, err := fs.Fs.Open(filename)
+	if err != nil {
+		return 0, nil, err
+	}
+	defer f.Close()
+	stat, err := f.Stat()
+	if err != nil {
+		return 0, nil, fmt.Errorf("could not stat file descriptor: %w", err)
+	}
+	return ParseEfivars(f, int(stat.Size()))
+}
+
+func ReadEfivarsWithGuid(filename string, guid util.EFIGUID) (Attributes, *bytes.Buffer, error) {
+	f := path.Join(Efivars, fmt.Sprintf("%s-%s", filename, guid.Format()))
+	return ReadEfivarsFile(f)
+}
+
+// Reads a known EFI variable from efivarfs.
 func ReadEfivars(filename string) (Attributes, *bytes.Buffer, error) {
 	guid := EFI_GLOBAL_VARIABLE
 	if ok := ImageSecurityDatabases[filename]; ok {
@@ -90,53 +106,52 @@ func ReadEfivars(filename string) (Attributes, *bytes.Buffer, error) {
 	return ReadEfivarsWithGuid(filename, guid)
 }
 
-func ReadEfivarsWithGuid(filename string, guid util.EFIGUID) (Attributes, *bytes.Buffer, error) {
-	f, err := os.Open(path.Join(Efivars, fmt.Sprintf("%s-%s", filename, guid.Format())))
-	if err != nil {
-		return 0, nil, err
-	}
-	defer f.Close()
-	return ParseEfivars(f)
+func SerializeEfivars(f io.Writer, b []byte) error {
+	return nil
 }
 
-// For a full path instead of the inferred efivars path
-func ReadEfivarsFile(filename string) (Attributes, *bytes.Buffer, error) {
-	f, err := os.Open(filename)
-	if err != nil {
-		return 0, nil, err
-	}
-	defer f.Close()
-	return ParseEfivars(f)
+func WriteEfivarsFile(filename, b []byte, fixImmutable bool) error {
+	return nil
 }
 
-// Write an EFI variable to sysfs
+// Write an
 func WriteEfivars(name string, attrs Attributes, b []byte) error {
 	guid := EFI_GLOBAL_VARIABLE
 	if ok := ImageSecurityDatabases[name]; ok {
 		guid = EFI_IMAGE_SECURITY_DATABASE_GUID
 	}
-	// attrs |= EFI_VARIABLE_APPEND_WRITE
+	return WriteEfivarsWithGuid(name, attrs, b, guid)
+}
+
+// Write an EFI variable to sysfs
+// TODO: Fix retryable writes
+func WriteEfivarsWithGuid(name string, attrs Attributes, b []byte, guid util.EFIGUID) error {
 	efivar := path.Join(Efivars, fmt.Sprintf("%s-%s", name, guid.Format()))
-	if err := attr.IsImmutable(efivar); errors.Is(err, attr.ErrIsImmutable) {
-		err := attr.UnsetImmutable(efivar)
-		if err != nil {
-			return err
+	err := attr.IsImmutable(efivar)
+	switch {
+	case errors.Is(err, attr.ErrIsImmutable):
+		if err := attr.UnsetImmutable(efivar); err != nil {
+			return fmt.Errorf("couldn't unset immutable bit: %w", err)
 		}
-	} else if errors.Is(err, os.ErrNotExist) {
-	} else if err != nil {
+	case errors.Is(err, os.ErrNotExist):
+	case err != nil:
 		return err
 	}
 
-	f, err := os.OpenFile(efivar, os.O_RDWR|os.O_CREATE|os.O_TRUNC, 0644)
+	flags := os.O_WRONLY | os.O_CREATE //| os.O_TRUNC
+	if attrs&EFI_VARIABLE_APPEND_WRITE != 0 {
+		flags |= os.O_APPEND
+	}
+	f, err := fs.Fs.OpenFile(efivar, flags, 0644)
 	if err != nil {
-		return errors.Wrap(err, "couldn't open file")
+		return fmt.Errorf("couldn't open file: %w", err)
 	}
 	defer f.Close()
 	attrBuf := new(bytes.Buffer)
 	binary.Write(attrBuf, binary.LittleEndian, attrs)
 	buf := append(attrBuf.Bytes(), b...)
 	if n, err := f.Write(buf); err != nil {
-		return errors.Wrap(err, "couldn't write efi variable")
+		return fmt.Errorf("couldn't write efi variable: %w", err)
 	} else if n != len(buf) {
 		return errors.New("could not write the entire buffer")
 	}
