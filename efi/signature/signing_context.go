@@ -5,7 +5,6 @@ import (
 	"crypto"
 	"crypto/x509"
 	"encoding/binary"
-	"log"
 
 	"github.com/foxboron/go-uefi/efi/attributes"
 	"github.com/foxboron/go-uefi/efi/pkcs7"
@@ -43,7 +42,7 @@ func NewSignedEFIVariable(ctx *EFIVariableSigningContext) (*EFIVariableAuthentic
 	}
 	for _, d := range writeOrder {
 		if err := binary.Write(buf, binary.LittleEndian, d); err != nil {
-			log.Fatal(err)
+			return nil, err
 		}
 	}
 
