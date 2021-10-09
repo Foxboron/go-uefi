@@ -8,23 +8,64 @@ existing tools, and integration tests to ensure the library is able of deal with
 future UEFI revisions.
 
 
-## Current progress
-
-* Reading from Linux efivars.
+# Features
 * Implements most Secure Boot relevant structs as defined in UEFI Spec Version 2.8 Errata A (February 14th 2020).
-* Microsoft Authenticode support (still buggy).
-    - Implements a subset of [PKCS7](https://tools.ietf.org/html/rfc2315).
-    - PE/COFF checksumming.
-* Example code implementing `sbsigntools`.
-* Some support for parsing protocol structs.
-* WIP top-level APIs.
-* WIP integration tests utilizing [vmtest](https://github.com/anatol/vmtest).
+* PE/COFF Checksumming.
+* Microsoft Authenticode signing.
+* Working with EFI_SIGNATURE_LIST and EFI_SIGNATURE_DATABASE.
+* Integration tests utilizing [vmtest](https://github.com/anatol/vmtest) and tianocore.
+* Virtual filesystem support for easier testing.
 
-# Goals
 
-* Implement `sbsigntool` and/or `efitools`.
-* Provide a sane top-level library.
-* Move [`sbctl`](https://github.com/Foxboron/sbctl) to use this library.
-* Provide low-level plumbing if needed.
-* Decent documentation between code and specification.
-* Integration tests towards [tianocore](https://www.tianocore.org/).
+# Examples
+
+Some example can be found under `cmd/`.
+
+
+## Append signatures to db
+
+```go
+package main
+import (
+	"github.com/foxboron/go-uefi/efi"
+	"github.com/foxboron/go-uefi/efi/signature"
+	"github.com/foxboron/go-uefi/efi/util"
+)
+
+var (
+    cert, _ = util.ReadKeyFromFile("signing.key")
+    key, _ = util.ReadCertFromFile("signing.cert")
+    sigdata = signature.SignatureData{
+	    Owner: util.EFIGUID{Data1: 0xc1095e1b, Data2: 0x8a3b, Data3: 0x4cf5, Data4: [8]uint8{0x9d, 0x4a, 0xaf, 0xc7, 0xd7, 0x5d, 0xca, 0x68}},
+	    Data:  []uint8{}}
+)
+
+func main() {
+    db, _ := efi.Getdb()
+    db.AppendSignature(signature.CERT_SHA256_GUID, &sigdata)
+    buf, _ := efi.SignEFIVariable(key, cert, "db", db.Bytes())
+    efi.WriteEFIVariable("db", buf)
+}
+```
+
+## Sign UEFI binary
+```go
+package main
+import (
+	"github.com/foxboron/go-uefi/efi/pecoff"
+	"github.com/foxboron/go-uefi/efi/util"
+)
+
+var (
+	key, _ := util.ReadKeyFromFile("signing.key")
+	cert, _ := util.ReadCertFromFile("signing.cert")
+)
+
+func main(){
+	peFile, _ := os.ReadFile("somefile")
+	ctx := pecoff.PECOFFChecksum(peFile)
+	sig, _ := pecoff.CreateSignature(ctx, Cert, Key)
+	b, _ := pecoff.AppendToBinary(ctx, sig)
+	os.WriteFile("somefile.signed", b, 0644)
+}
+```
