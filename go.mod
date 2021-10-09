@@ -10,3 +10,5 @@ require (
 	golang.org/x/sys v0.0.0-20201207223542-d4d67f95c62d
 	golang.org/x/text v0.3.6
 )
+
+require github.com/spf13/afero v1.6.0 // indirect
