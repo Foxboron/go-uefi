@@ -5,7 +5,6 @@ import (
 	"encoding/binary"
 	"encoding/hex"
 	"fmt"
-	"log"
 	"strings"
 )
 
@@ -32,6 +31,10 @@ func (e *EFIGUID) Format() string {
 	return fmt.Sprintf("%08x-%04x-%04x-%04x-%12x", e.Data1, e.Data2, e.Data3, e.Data4[:2], e.Data4[2:])
 }
 
+func (e *EFIGUID) Bytes() []byte {
+	return GUIDToBytes(e)
+}
+
 // Compare two EFIGUID structs
 func CmpEFIGUID(cmp1 EFIGUID, cmp2 EFIGUID) bool {
 	return cmp1.Data1 == cmp2.Data1 &&
@@ -42,10 +45,7 @@ func CmpEFIGUID(cmp1 EFIGUID, cmp2 EFIGUID) bool {
 
 // Convert a string to an EFIGUID
 func StringToGUID(s string) *EFIGUID {
-	decoded, err := hex.DecodeString(strings.ReplaceAll(s, "-", ""))
-	if err != nil {
-		log.Fatal(err)
-	}
+	decoded, _ := hex.DecodeString(strings.ReplaceAll(s, "-", ""))
 	return BytesToGUID(decoded)
 }
 
@@ -53,9 +53,7 @@ func StringToGUID(s string) *EFIGUID {
 func BytesToGUID(s []byte) *EFIGUID {
 	var efi EFIGUID
 	f := bytes.NewReader(s[:])
-	if err := binary.Read(f, binary.BigEndian, &efi); err != nil {
-		log.Fatal(err)
-	}
+	binary.Read(f, binary.BigEndian, &efi)
 	return &efi
 }
 
@@ -63,9 +61,7 @@ func BytesToGUID(s []byte) *EFIGUID {
 func GUIDToBytes(g *EFIGUID) []byte {
 	b := new(bytes.Buffer)
 	for _, v := range []interface{}{g.Data1, g.Data2, g.Data3, g.Data4} {
-		if err := binary.Write(b, binary.BigEndian, v); err != nil {
-			log.Fatal(err)
-		}
+		binary.Write(b, binary.BigEndian, v)
 	}
 	return b.Bytes()
 }
@@ -73,8 +69,6 @@ func GUIDToBytes(g *EFIGUID) []byte {
 // Write an EFIGUID to a bytes.Buffer
 func WriteGUID(b *bytes.Buffer, g *EFIGUID) {
 	for _, v := range []interface{}{g.Data1, g.Data2, g.Data3, g.Data4} {
-		if err := binary.Write(b, binary.BigEndian, v); err != nil {
-			log.Fatal(err)
-		}
+		binary.Write(b, binary.BigEndian, v)
 	}
 }
