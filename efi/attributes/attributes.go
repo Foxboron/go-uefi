@@ -16,6 +16,8 @@ import (
 // Section 8.2 Variable Services
 type Attributes uint32
 
+var SizeofAttributes = 4
+
 const (
 	EFI_VARIABLE_NON_VOLATILE                          Attributes = 0x00000001
 	EFI_VARIABLE_BOOTSERVICE_ACCESS                    Attributes = 0x00000002
@@ -73,8 +75,8 @@ func ParseEfivars(f *os.File) (Attributes, *bytes.Buffer, error) {
 	if err != nil {
 		return 0, nil, errors.Wrap(err, "could not stat file descriptor")
 	}
-	buf := make([]byte, stat.Size()-4)
-	if err = binary.Read(f, binary.LittleEndian, &buf); err != nil {
+	buf := make([]byte, size-SizeofAttributes)
+	if err := binary.Read(f, binary.LittleEndian, &buf); err != nil {
 		return 0, nil, err
 	}
 	return attrs, bytes.NewBuffer(buf), nil
