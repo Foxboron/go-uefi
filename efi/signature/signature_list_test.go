@@ -30,7 +30,7 @@ var (
 
 func TestParseSignatureListVars(t *testing.T) {
 	for _, path := range EfivarsTestFiles {
-		attrs, data, _ := attributes.ReadEfivarsFile(path)
+		attrs, data, err := attributes.ReadEfivarsFile(path)
 		var pkflags attributes.Attributes
 		pkflags |= attributes.EFI_VARIABLE_NON_VOLATILE
 		pkflags |= attributes.EFI_VARIABLE_BOOTSERVICE_ACCESS
@@ -95,7 +95,10 @@ func TestParseSignatureListHashFile(t *testing.T) {
 
 func TestParseSignatureSupport(t *testing.T) {
 	for _, path := range SigsupportTestFiles {
-		attrs, data, _ := attributes.ReadEfivarsFile(path)
+		attrs, data, err := attributes.ReadEfivarsFile(path)
+		if err != nil {
+			t.Fatal(err)
+		}
 		var pkflags attributes.Attributes
 		pkflags |= attributes.EFI_VARIABLE_BOOTSERVICE_ACCESS
 		pkflags |= attributes.EFI_VARIABLE_RUNTIME_ACCESS

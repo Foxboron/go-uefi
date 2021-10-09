@@ -3,6 +3,7 @@ package device
 import (
 	"io/ioutil"
 	"log"
+	"path/filepath"
 	"testing"
 
 	"github.com/foxboron/go-uefi/efi/attributes"
@@ -16,7 +17,11 @@ func TestAbs(t *testing.T) {
 		log.Fatal(err)
 	}
 	for _, file := range files {
-		_, f, _ := attributes.ReadEfivars(file.Name()[:8])
+		filepath := filepath.Join(dir, file.Name())
+		_, f, err := attributes.ReadEfivarsFile(filepath)
+		if err != nil {
+			t.Fatal(err)
+		}
 		ParseEFILoadOption(f)
 		ParseDevicePath(f)
 	}
