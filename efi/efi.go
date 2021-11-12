@@ -129,7 +129,7 @@ func Getdb() (*signature.SignatureDatabase, error) {
 	return &siglist, nil
 }
 
-func SignEFIExecutable(key *rsa.PrivateKey, cert *x509.Certificate, file []byte) ([]byte, error) {
+func SignEFIExecutable(key crypto.Signer, cert *x509.Certificate, file []byte) ([]byte, error) {
 	ctx := pecoff.PECOFFChecksum(file)
 	sig, err := pecoff.CreateSignature(ctx, cert, key)
 	if err != nil {
@@ -142,7 +142,7 @@ func SignEFIExecutable(key *rsa.PrivateKey, cert *x509.Certificate, file []byte)
 	return b, nil
 }
 
-func SignEFIVariableWithAttr(key *rsa.PrivateKey, cert *x509.Certificate, varname string, siglist []byte, attr attributes.Attributes) ([]byte, error) {
+func SignEFIVariableWithAttr(key crypto.Signer, cert *x509.Certificate, varname string, siglist []byte, attr attributes.Attributes) ([]byte, error) {
 	attrs := ValidAttributes[varname]
 	attrs |= attr
 
@@ -172,7 +172,7 @@ func SignEFIVariableWithAttr(key *rsa.PrivateKey, cert *x509.Certificate, varnam
 	return buf.Bytes(), err
 }
 
-func SignEFIVariable(key *rsa.PrivateKey, cert *x509.Certificate, varname string, siglist []byte) ([]byte, error) {
+func SignEFIVariable(key crypto.Signer, cert *x509.Certificate, varname string, siglist []byte) ([]byte, error) {
 	return SignEFIVariableWithAttr(key, cert, varname, siglist, 0)
 }
 
