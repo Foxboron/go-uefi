@@ -117,7 +117,7 @@ func Getdb() (*signature.SignatureDatabase, error) {
 	efivar := "db"
 	attr, data, err := attributes.ReadEfivars(efivar)
 	if err != nil {
-		log.Fatal(err)
+		return nil, err
 	}
 	if (ValidAttributes[efivar] & attr) != ValidAttributes[efivar] {
 		return nil, fmt.Errorf("invalid bitmask")
