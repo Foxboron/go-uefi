@@ -41,6 +41,9 @@ func (sd *SignatureDatabase) Exists(certtype util.EFIGUID, siglist *SignatureLis
 
 // Appends the raw signature values to the database
 func (sd *SignatureDatabase) Append(certtype util.EFIGUID, owner util.EFIGUID, data []byte) error {
+	if _, ok := ValidEFISignatureSchemes[certtype]; !ok {
+		return ErrNoSuchSignatureScheme
+	}
 	for _, l := range *sd {
 		if !util.CmpEFIGUID(l.SignatureType, certtype) {
 			continue

@@ -35,6 +35,8 @@ var (
 
 type CertType string
 
+var ErrNoSuchSignatureScheme = errors.New("no such signature scheme")
+
 // Quick access list
 // Maybe a map[string]EFIGUID?
 var ValidEFISignatureSchemes = map[util.EFIGUID]CertType{
