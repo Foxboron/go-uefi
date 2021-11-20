@@ -48,25 +48,6 @@ func NewKey(tpm io.ReadWriteCloser, handler tpmutil.Handle) (crypto.PublicKey, e
 	return nil, nil
 }
 
-func TPMNewKey(rw io.ReadWriter, parent tpmutil.Handle, template tpm2.Public) (k *client.Key, err error) {
-	handle, pubArea, _, _, _, _, err :=
-		tpm2.CreatePrimaryEx(rw, parent, tpm2.PCRSelection{}, "", "", template)
-	if err != nil {
-		return nil, err
-	}
-	defer func() {
-		if err != nil {
-			tpm2.FlushContext(rw, handle)
-		}
-	}()
-
-	k = &client.Key{rw: rw, handle: handle}
-	if k.pubArea, err = tpm2.DecodePublic(pubArea); err != nil {
-		return
-	}
-	return k, k.finish()
-}
-
 func TPMToX509(tpmCert io.ReadWriteCloser, handle tpmutil.Handle) (*client.Key, *x509.Certificate, error) {
 	key, err := client.NewCachedKey(tpmCert, tpm2.HandleEndorsement, templateSSA(), UEFIHandle)
 	if err != nil {
