@@ -4,7 +4,7 @@ package efi
 
 import (
 	"bytes"
-	"crypto/rsa"
+	"crypto"
 	"crypto/x509"
 	"encoding/binary"
 	"fmt"
