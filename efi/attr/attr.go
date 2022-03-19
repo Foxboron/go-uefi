@@ -3,8 +3,6 @@ package attr
 import (
 	"errors"
 	"os"
-
-	"golang.org/x/sys/unix"
 )
 
 /* The code below won't work correctly if this tool is built
@@ -66,12 +64,6 @@ func UnsetImmutable(p string) error {
 }
 
 // GetAttr retrieves the attributes of a file on a linux filesystem
-func GetAttrFromFile(f *os.File) (int32, error) {
-	attr_int, err := unix.IoctlGetInt(int(f.Fd()), unix.FS_IOC_GETFLAGS)
-	return int32(attr_int), err
-}
-
-// GetAttr retrieves the attributes of a file on a linux filesystem
 func GetAttr(path string) (int32, error) {
 	f, err := os.OpenFile(path, os.O_RDONLY|os.O_CREATE, 0644)
 	if err != nil {
@@ -79,14 +71,6 @@ func GetAttr(path string) (int32, error) {
 	}
 	defer f.Close()
 	return GetAttrFromFile(f)
-}
-
-// SetAttr sets the attributes of a file on a linux filesystem to the given value
-func SetAttrOnFile(f *os.File, attr int32) error {
-	if err := unix.IoctlSetPointerInt(int(f.Fd()), unix.FS_IOC_SETFLAGS, int(attr)); err != nil {
-		return err
-	}
-	return nil
 }
 
 // SetAttr sets the attributes of a file on a linux filesystem to the given value
