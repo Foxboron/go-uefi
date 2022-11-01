@@ -1,7 +1,6 @@
 package attr
 
 import (
-	"errors"
 	"os"
 
 	"golang.org/x/sys/unix"
