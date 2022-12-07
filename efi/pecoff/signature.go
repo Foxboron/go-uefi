@@ -110,7 +110,7 @@ func GetSignatureBytesFromFile(pefile []byte) ([]byte, error) {
 	}
 	addr := datadir.VirtualAddress
 	certSize := datadir.Size
-	if int(addr+certSize) >= len(pefile) {
+	if int(addr+certSize) > len(pefile) {
 		// Most likely a corrupt binary
 		return nil, fmt.Errorf("certificate size exceed the binary file")
 	}
