@@ -8,7 +8,8 @@ import (
 	"crypto/x509"
 	"encoding/binary"
 	"fmt"
-	"log"
+	"io"
+	"os"
 
 	"github.com/foxboron/go-uefi/efi/attributes"
 	"github.com/foxboron/go-uefi/efi/device"
@@ -81,11 +82,14 @@ func GetSecureBoot() bool {
 	return false
 }
 
-func GetPK() ([]*signature.SignatureList, error) {
+func GetPK() (*signature.SignatureDatabase, error) {
 	efivar := "PK"
 	attributes, data, err := attributes.ReadEfivars(efivar)
 	if err != nil {
-		log.Fatal(err)
+		if errors.Is(err, io.EOF) || os.IsNotExist(err) {
+			return &signature.SignatureDatabase{}, nil
+		}
+		return &signature.SignatureDatabase{}, err
 	}
 	if (ValidAttributes[efivar] & attributes) != ValidAttributes[efivar] {
 		return nil, fmt.Errorf("invalid bitmask")
@@ -94,14 +98,17 @@ func GetPK() ([]*signature.SignatureList, error) {
 	if err != nil {
 		return nil, errors.Wrapf(err, "can't parse Platform Key")
 	}
-	return siglist, nil
+	return &siglist, nil
 }
 
-func GetKEK() ([]*signature.SignatureList, error) {
+func GetKEK() (*signature.SignatureDatabase, error) {
 	efivar := "KEK"
 	attr, data, err := attributes.ReadEfivars(efivar)
 	if err != nil {
-		log.Fatal(err)
+		if errors.Is(err, io.EOF) || os.IsNotExist(err) {
+			return &signature.SignatureDatabase{}, nil
+		}
+		return &signature.SignatureDatabase{}, err
 	}
 	if (ValidAttributes[efivar] & attr) != ValidAttributes[efivar] {
 		return nil, fmt.Errorf("invalid bitmask")
@@ -110,14 +117,17 @@ func GetKEK() ([]*signature.SignatureList, error) {
 	if err != nil {
 		return nil, errors.Wrapf(err, "can't parse Key Exchange key")
 	}
-	return siglist, nil
+	return &siglist, nil
 }
 
 func Getdb() (*signature.SignatureDatabase, error) {
 	efivar := "db"
 	attr, data, err := attributes.ReadEfivars(efivar)
 	if err != nil {
-		return nil, err
+		if errors.Is(err, io.EOF) || os.IsNotExist(err) {
+			return &signature.SignatureDatabase{}, nil
+		}
+		return &signature.SignatureDatabase{}, err
 	}
 	if (ValidAttributes[efivar] & attr) != ValidAttributes[efivar] {
 		return nil, fmt.Errorf("invalid bitmask")
