@@ -129,6 +129,9 @@ func WriteEfivarsWithGuid(name string, attrs Attributes, b []byte, guid util.EFI
 	efivar := path.Join(Efivars, fmt.Sprintf("%s-%s", name, guid.Format()))
 	err := attr.IsImmutable(efivar)
 	switch {
+	// Special case for test suites
+	case fs.Fs.Name() == "MemMapFS":
+		break
 	case errors.Is(err, attr.ErrIsImmutable):
 		if err := attr.UnsetImmutable(efivar); err != nil {
 			return fmt.Errorf("couldn't unset immutable bit: %w", err)
