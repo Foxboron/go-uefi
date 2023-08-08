@@ -139,6 +139,25 @@ func Getdb() (*signature.SignatureDatabase, error) {
 	return &siglist, nil
 }
 
+func Getdbx() (*signature.SignatureDatabase, error) {
+	efivar := "dbx"
+	attr, data, err := attributes.ReadEfivars(efivar)
+	if err != nil {
+		if errors.Is(err, io.EOF) || os.IsNotExist(err) {
+			return &signature.SignatureDatabase{}, nil
+		}
+		return &signature.SignatureDatabase{}, err
+	}
+	if (ValidAttributes[efivar] & attr) != ValidAttributes[efivar] {
+		return nil, fmt.Errorf("invalid bitmask")
+	}
+	siglist, err := signature.ReadSignatureDatabase(data)
+	if err != nil {
+		return nil, errors.Wrapf(err, "can't parse forbidden database key")
+	}
+	return &siglist, nil
+}
+
 func SignEFIExecutable(key crypto.Signer, cert *x509.Certificate, file []byte) ([]byte, error) {
 	ctx := pecoff.PECOFFChecksum(file)
 	sig, err := pecoff.CreateSignature(ctx, cert, key)
