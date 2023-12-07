@@ -92,7 +92,9 @@ func SignPKCS7(signer crypto.Signer, cert *x509.Certificate, oid encasn1.ObjectI
 					// content [0] EXPLICIT DEFINED BY contentType OPTIONAL
 					if len(content) > 0 && !oid.Equal(OIDData) {
 						b.AddASN1(asn1.Tag(0).ContextSpecific().Constructed(), func(b *cryptobyte.Builder) {
-							b.AddBytes(content)
+							b.AddASN1(asn1.SEQUENCE, func(b *cryptobyte.Builder) {
+								b.AddBytes(content)
+							})
 						})
 					}
 				})

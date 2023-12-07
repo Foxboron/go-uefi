@@ -56,71 +56,68 @@ func (a *Authenticode) Verify(cert *x509.Certificate, img []byte) (bool, error) 
 func SignAuthenticode(signer crypto.Signer, cert *x509.Certificate, digest []byte, alg crypto.Hash) ([]byte, error) {
 	var b cryptobyte.Builder
 
-	//	SpcIndirectDataContent ::= SEQUENCE
+	//		data           SpcAttributeTypeAndOptionalValue,
 	b.AddASN1(asn1.SEQUENCE, func(b *cryptobyte.Builder) {
 
-		//		data           SpcAttributeTypeAndOptionalValue,
+		//		type   ObjectID,
+		b.AddASN1ObjectIdentifier(OIDSpcPEImageDataObjID)
+
+		//	SpcPeImageData ::= SEQUENCE {
 		b.AddASN1(asn1.SEQUENCE, func(b *cryptobyte.Builder) {
 
-			//		type   ObjectID,
-			b.AddASN1ObjectIdentifier(OIDSpcPEImageDataObjID)
+			//		flags                   SpcPeImageFlags DEFAULT { includeResources },
+			//	SpcPeImageFlags ::= BIT STRING {
+			//		includeResources            (0),
+			//		includeDebugInfo            (1),
+			//		includeImportAddressTable   (2)
+			//	}
+			// We could also pass '0' but my reference implementation has one NULL byte, and not two NULL bytes.
+			b.AddASN1BitString(nil)
 
-			//	SpcPeImageData ::= SEQUENCE {
-			b.AddASN1(asn1.SEQUENCE, func(b *cryptobyte.Builder) {
+			//		file                    SpcLink
+			// SpcLink ::= CHOICE {
+			//		url                     [0] IMPLICIT IA5STRING,
+			//		moniker                 [1] IMPLICIT SpcSerializedObject,
+			//		file                    [2] EXPLICIT SpcString
+			//	} --#public--
+			b.AddASN1(asn1.Tag(0).ContextSpecific().Constructed(), func(b *cryptobyte.Builder) {
 
-				//		flags                   SpcPeImageFlags DEFAULT { includeResources },
-				//	SpcPeImageFlags ::= BIT STRING {
-				//		includeResources            (0),
-				//		includeDebugInfo            (1),
-				//		includeImportAddressTable   (2)
-				//	}
-				// We could also pass '0' but my reference implementation has one NULL byte, and not two NULL bytes.
-				b.AddASN1BitString(nil)
-
-				//		file                    SpcLink
-				// SpcLink ::= CHOICE {
-				//		url                     [0] IMPLICIT IA5STRING,
-				//		moniker                 [1] IMPLICIT SpcSerializedObject,
 				//		file                    [2] EXPLICIT SpcString
-				//	} --#public--
-				b.AddASN1(asn1.Tag(0).ContextSpecific().Constructed(), func(b *cryptobyte.Builder) {
+				b.AddASN1(asn1.Tag(2).ContextSpecific().Constructed(), func(b *cryptobyte.Builder) {
 
-					//		file                    [2] EXPLICIT SpcString
-					b.AddASN1(asn1.Tag(2).ContextSpecific().Constructed(), func(b *cryptobyte.Builder) {
+					//		unicode                 [0] IMPLICIT BMPSTRING,
+					b.AddASN1(asn1.Tag(0).ContextSpecific(), func(b *cryptobyte.Builder) {
 
-						//		unicode                 [0] IMPLICIT BMPSTRING,
-						b.AddASN1(asn1.Tag(0).ContextSpecific(), func(b *cryptobyte.Builder) {
+						// <<<Obsolete>>>, but with null bytes after each bytes. idk why.
+						s := []byte{0x00, 0x3c, 0x00, 0x3c, 0x00, 0x3c, 0x00, 0x4f, 0x00, 0x62,
+							0x00, 0x73, 0x00, 0x6f, 0x00, 0x6c, 0x00, 0x65, 0x00, 0x74,
+							0x00, 0x65, 0x00, 0x3e, 0x00, 0x3e, 0x00, 0x3E}
+						b.AddBytes(s)
 
-							// <<<Obsolete>>>, but with null bytes after each bytes. idk why.
-							s := []byte{0x00, 0x3c, 0x00, 0x3c, 0x00, 0x3c, 0x00, 0x4f, 0x00, 0x62,
-								0x00, 0x73, 0x00, 0x6f, 0x00, 0x6c, 0x00, 0x65, 0x00, 0x74,
-								0x00, 0x65, 0x00, 0x3e, 0x00, 0x3e, 0x00, 0x3E}
-							b.AddBytes(s)
-
-						})
 					})
 				})
 			})
 		})
+	})
 
-		//	DigestInfo ::= SEQUENCE {
+	//	DigestInfo ::= SEQUENCE {
+	b.AddASN1(asn1.SEQUENCE, func(b *cryptobyte.Builder) {
+
+		//		digestAlgorithm  AlgorithmIdentifier,
 		b.AddASN1(asn1.SEQUENCE, func(b *cryptobyte.Builder) {
 
 			//		digestAlgorithm  AlgorithmIdentifier,
-			b.AddASN1(asn1.SEQUENCE, func(b *cryptobyte.Builder) {
+			b.AddASN1ObjectIdentifier(OIDDigestAlgorithmSHA256)
 
-				//		digestAlgorithm  AlgorithmIdentifier,
-				b.AddASN1ObjectIdentifier(OIDDigestAlgorithmSHA256)
-
-				// Add explicit null, I believe it's needed by picky UEFI things
-				b.AddASN1NULL()
-			})
-
-			//		digest           OCTETSTRING
-			b.AddASN1OctetString(digest)
+			// Add explicit null, I believe it's needed by picky UEFI things
+			b.AddASN1NULL()
 		})
+
+		//		digest           OCTETSTRING
+		b.AddASN1OctetString(digest)
 	})
-	return SignPKCS7(signer, cert, OIDSpcIndirectDataContent, b.BytesOrPanic())
+
+	return b.Bytes()
 }
 
 func ParseAuthenticode(b []byte) (*Authenticode, error) {
