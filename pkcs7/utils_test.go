@@ -37,7 +37,3 @@ func InitCert() (*x509.Certificate, *rsa.PrivateKey) {
 	cert, _ := x509.ParseCertificate(derBytes)
 	return cert, priv
 }
-
-func init() {
-	cert, key = InitCert()
-}
