@@ -1,11 +1,16 @@
-package pkcs7
+package authenticode
 
 import (
 	"crypto"
+	"os"
 	"testing"
+
+	"github.com/foxboron/go-uefi/asntest"
 )
 
 func TestVerifyAuthenticode(t *testing.T) {
+	cert, key := asntest.InitCert()
+
 	img := []byte("test")
 	h := crypto.SHA256.New()
 	h.Write(img)
@@ -26,4 +31,17 @@ func TestVerifyAuthenticode(t *testing.T) {
 	if !ok {
 		t.Fatalf("authenticode signature didn't validate, it should")
 	}
+}
+
+func TestParseSbsign(t *testing.T) {
+	b, err := os.ReadFile("testdata/test.authenticode.signed")
+	if err != nil {
+		t.Fatal(err)
+	}
+
+	_, err = ParseAuthenticode(b)
+	if err != nil {
+		t.Fatalf("failed to parse pkcs7: %v", err)
+	}
+
 }

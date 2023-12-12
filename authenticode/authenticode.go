@@ -1,4 +1,4 @@
-package pkcs7
+package authenticode
 
 import (
 	"bytes"
@@ -11,6 +11,7 @@ import (
 
 	encasn1 "encoding/asn1"
 
+	"github.com/foxboron/go-uefi/pkcs7"
 	"golang.org/x/crypto/cryptobyte"
 	"golang.org/x/crypto/cryptobyte/asn1"
 )
@@ -24,7 +25,7 @@ var (
 )
 
 type Authenticode struct {
-	Pkcs   *PKCS7
+	Pkcs   *pkcs7.PKCS7
 	Algid  *pkix.AlgorithmIdentifier
 	Digest []byte
 }
@@ -32,7 +33,7 @@ type Authenticode struct {
 func (a *Authenticode) Verify(cert *x509.Certificate, img []byte) (bool, error) {
 	var h hash.Hash
 	switch {
-	case a.Algid.Algorithm.Equal(OIDDigestAlgorithmSHA256):
+	case a.Algid.Algorithm.Equal(pkcs7.OIDDigestAlgorithmSHA256):
 		h = crypto.SHA256.New()
 	default:
 		return false, errors.New("unsupported hashing function")
@@ -42,9 +43,6 @@ func (a *Authenticode) Verify(cert *x509.Certificate, img []byte) (bool, error) 
 		return false, errors.New("wrong block size")
 	}
 
-	// TODO: We should actually do the authenticode hash checksum here
-	// However we assume (currently) the user has done that.
-
 	h.Write(img)
 	digest := h.Sum(nil)
 	if !bytes.Equal(digest, a.Digest) {
@@ -53,7 +51,7 @@ func (a *Authenticode) Verify(cert *x509.Certificate, img []byte) (bool, error) 
 	return a.Pkcs.Verify(cert)
 }
 
-func SignAuthenticode(signer crypto.Signer, cert *x509.Certificate, digest []byte, alg crypto.Hash) ([]byte, error) {
+func CreateSpcIndirectDataContent(digest []byte, alg crypto.Hash) ([]byte, error) {
 	var b cryptobyte.Builder
 
 	//		data           SpcAttributeTypeAndOptionalValue,
@@ -107,7 +105,7 @@ func SignAuthenticode(signer crypto.Signer, cert *x509.Certificate, digest []byt
 		b.AddASN1(asn1.SEQUENCE, func(b *cryptobyte.Builder) {
 
 			//		digestAlgorithm  AlgorithmIdentifier,
-			b.AddASN1ObjectIdentifier(OIDDigestAlgorithmSHA256)
+			b.AddASN1ObjectIdentifier(pkcs7.OIDDigestAlgorithmSHA256)
 
 			// Add explicit null, I believe it's needed by picky UEFI things
 			b.AddASN1NULL()
@@ -120,9 +118,17 @@ func SignAuthenticode(signer crypto.Signer, cert *x509.Certificate, digest []byt
 	return b.Bytes()
 }
 
+func SignAuthenticode(signer crypto.Signer, cert *x509.Certificate, digest []byte, alg crypto.Hash) ([]byte, error) {
+	b, err := CreateSpcIndirectDataContent(digest, alg)
+	if err != nil {
+		return nil, fmt.Errorf("failed creating SpcIndirectDataContent: %v", err)
+	}
+	return pkcs7.SignPKCS7(signer, cert, OIDSpcIndirectDataContent, b)
+}
+
 func ParseAuthenticode(b []byte) (*Authenticode, error) {
 	var auth Authenticode
-	pkcs, err := ParsePKCS7(b)
+	pkcs, err := pkcs7.ParsePKCS7(b)
 	if err != nil {
 		return nil, fmt.Errorf("failed parsing authenticode: %v", err)
 	}
@@ -161,7 +167,7 @@ func ParseAuthenticode(b []byte) (*Authenticode, error) {
 		return nil, errors.New("no spcindirectdatacontent")
 	}
 
-	algid, err := parseAlgorithmIdentifier(&der)
+	algid, err := pkcs7.ParseAlgorithmIdentifier(&der)
 	if err != nil {
 		return nil, fmt.Errorf("failed parsing DigestInfo: %v", err)
 	}
@@ -175,31 +181,4 @@ func ParseAuthenticode(b []byte) (*Authenticode, error) {
 	auth.Digest = digest
 
 	return &auth, err
-}
-
-type Attributesv2 struct {
-	ContentType   encasn1.ObjectIdentifier
-	MessageDigest []byte
-}
-
-func (a *Attributesv2) Marshal() []byte {
-	b := cryptobyte.NewBuilder(nil)
-	// Attributes := SET OF Attribute
-	b.AddASN1(asn1.SET, func(b *cryptobyte.Builder) {
-		// Add the content type
-		b.AddASN1(asn1.SEQUENCE, func(b *cryptobyte.Builder) {
-			b.AddASN1ObjectIdentifier(OIDAttributeContentType)
-			b.AddASN1(asn1.SET, func(b *cryptobyte.Builder) {
-				b.AddASN1ObjectIdentifier(a.ContentType)
-			})
-		})
-		// Digest from Authenticode
-		b.AddASN1(asn1.SEQUENCE, func(b *cryptobyte.Builder) {
-			b.AddASN1ObjectIdentifier(OIDAttributeMessageDigest)
-			b.AddASN1(asn1.SET, func(b *cryptobyte.Builder) {
-				b.AddASN1OctetString(a.MessageDigest)
-			})
-		})
-	})
-	return b.BytesOrPanic()
 }
