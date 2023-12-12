@@ -1,6 +1,7 @@
 package pkcs7
 
 import (
+	"bytes"
 	"crypto"
 	"crypto/rand"
 	"crypto/x509"
@@ -27,6 +28,10 @@ var (
 	OIDAttributeSigningTime   = encasn1.ObjectIdentifier{1, 2, 840, 113549, 1, 9, 5}
 )
 
+var (
+	ErrNoCertificate = errors.New("no valid certificates")
+)
+
 // Partially implements RFC2315
 func SignPKCS7(signer crypto.Signer, cert *x509.Certificate, oid encasn1.ObjectIdentifier, content []byte) ([]byte, error) {
 	var contentInfo cryptobyte.Builder
@@ -41,7 +46,7 @@ func SignPKCS7(signer crypto.Signer, cert *x509.Certificate, oid encasn1.ObjectI
 	// Hash the authenticated attributes
 	h := crypto.SHA256.New()
 	h.Write(content)
-	attrs := &Attributesv2{
+	attrs := &Attributes{
 		ContentType:   oid,
 		MessageDigest: h.Sum(nil),
 	}
@@ -166,7 +171,7 @@ func SignPKCS7(signer crypto.Signer, cert *x509.Certificate, oid encasn1.ObjectI
 }
 
 // Parse cryptobyte string to pkix.AlgorithmIdentifier
-func parseAlgorithmIdentifier(der *cryptobyte.String) (*pkix.AlgorithmIdentifier, error) {
+func ParseAlgorithmIdentifier(der *cryptobyte.String) (*pkix.AlgorithmIdentifier, error) {
 	var ident pkix.AlgorithmIdentifier
 	var s cryptobyte.String
 
@@ -188,6 +193,17 @@ func parseAlgorithmIdentifier(der *cryptobyte.String) (*pkix.AlgorithmIdentifier
 	}
 	// TODO: Support paramters, we don't use it currently
 	return &ident, nil
+}
+
+func hasContentInfo(der *cryptobyte.String) (bool, error) {
+	check := *der
+	if !check.ReadASN1(&check, asn1.SEQUENCE) {
+		return false, errors.New("incorrect input")
+	}
+	if !check.PeekASN1Tag(asn1.OBJECT_IDENTIFIER) {
+		return false, nil
+	}
+	return true, nil
 }
 
 func parseContentInfo(der *cryptobyte.String) (oid encasn1.ObjectIdentifier, content cryptobyte.String, err error) {
@@ -220,26 +236,35 @@ func parseCertificates(der *cryptobyte.String) ([]*x509.Certificate, error) {
 	return certs, nil
 }
 
-func parseIssuerAndSerialNumber(der *cryptobyte.String) error {
-	// TODO: We don't really use it yet. Expose error
-	var issuerSerialNumber cryptobyte.String
-	var rawIssuer []byte
-	var serialNumber big.Int
-
-	if !der.ReadASN1(&issuerSerialNumber, asn1.SEQUENCE) {
-		return errors.New("no issuer and serial number")
-	}
-	if !issuerSerialNumber.ReadASN1Bytes(&rawIssuer, asn1.SEQUENCE) {
-		return errors.New("not a raw issuer")
-	}
-	if !issuerSerialNumber.ReadASN1Integer(&serialNumber) {
-		return errors.New("no serial number")
-	}
-	return nil
+type issuerAndSerialNumber struct {
+	RawIssuer    []byte
+	SerialNumber *big.Int
 }
 
-func parseAttributes(der *cryptobyte.String) (*Attributesv2, error) {
-	var attributes Attributesv2
+func parseIssuerAndSerialNumber(der *cryptobyte.String) (*issuerAndSerialNumber, error) {
+	// TODO: We don't really use it yet. Expose error
+	var s cryptobyte.String
+	var ias issuerAndSerialNumber
+	var bi big.Int
+
+	var issuer cryptobyte.String
+
+	if !der.ReadASN1(&s, asn1.SEQUENCE) {
+		return nil, errors.New("no issuer and serial number")
+	}
+	if !s.ReadASN1Element(&issuer, asn1.SEQUENCE) {
+		return nil, errors.New("not a raw issuer")
+	}
+	ias.RawIssuer = issuer
+	if !s.ReadASN1Integer(&bi) {
+		return nil, errors.New("no serial number")
+	}
+	ias.SerialNumber = &bi
+	return &ias, nil
+}
+
+func parseAttributes(der *cryptobyte.String) (*Attributes, error) {
+	var attributes Attributes
 	var attrs cryptobyte.String
 	var hasAttrs bool
 
@@ -307,13 +332,14 @@ func parseSignerInfos(der *cryptobyte.String) (*signerinfo, error) {
 	}
 	si.Version = version
 
-	err := parseIssuerAndSerialNumber(&signerInfo)
+	ias, err := parseIssuerAndSerialNumber(&signerInfo)
 	if err != nil {
 		return nil, fmt.Errorf("failed parsing issuer and serial number: %v", err)
 	}
+	si.IssuerAndSerialnumber = ias
 
 	//digestAlgo
-	algid, err := parseAlgorithmIdentifier(&signerInfo)
+	algid, err := ParseAlgorithmIdentifier(&signerInfo)
 	if err != nil {
 		return nil, fmt.Errorf("failed parsing digest algorithm: %v", err)
 	}
@@ -327,7 +353,7 @@ func parseSignerInfos(der *cryptobyte.String) (*signerinfo, error) {
 	si.AuthenticatedAttributes = attrs
 
 	// digest encrypted algorithm
-	algid, err = parseAlgorithmIdentifier(&signerInfo)
+	algid, err = ParseAlgorithmIdentifier(&signerInfo)
 	if err != nil {
 		return nil, fmt.Errorf("failed parsing encrypted digest algorithm: %v", err)
 	}
@@ -346,17 +372,30 @@ type signerinfo struct {
 	Version                  int64
 	EncryptedDigest          []byte
 	DigestAlgorithm          *pkix.AlgorithmIdentifier
-	AuthenticatedAttributes  *Attributesv2
+	AuthenticatedAttributes  *Attributes
 	EncryptedDigestAlgorithm *pkix.AlgorithmIdentifier
+	IssuerAndSerialnumber    *issuerAndSerialNumber
 }
 
-func (s *signerinfo) Verify(cert *x509.Certificate) (bool, error) {
+func (s *signerinfo) verify(cert *x509.Certificate) (bool, error) {
 	sigdata := s.AuthenticatedAttributes.Marshal()
 	err := cert.CheckSignature(x509.SHA256WithRSA, sigdata, s.EncryptedDigest)
 	if err != nil {
 		return false, err
 	}
 	return true, nil
+}
+
+func (s *signerinfo) isCertificate(cert *x509.Certificate) bool {
+	fmt.Println(cert.RawIssuer)
+	fmt.Println(s.IssuerAndSerialnumber.RawIssuer)
+	if !bytes.Equal(cert.RawIssuer, s.IssuerAndSerialnumber.RawIssuer) {
+		return false
+	}
+	if cert.SerialNumber.Cmp(s.IssuerAndSerialnumber.SerialNumber) != 0 {
+		return false
+	}
+	return true
 }
 
 type PKCS7 struct {
@@ -369,25 +408,43 @@ type PKCS7 struct {
 
 func (p *PKCS7) Verify(cert *x509.Certificate) (bool, error) {
 	for _, si := range p.SignerInfo {
-		ok, err := si.Verify(cert)
+		if !si.isCertificate(cert) {
+			continue
+		}
+		ok, err := si.verify(cert)
 		if err != nil {
 			return false, fmt.Errorf("failed validating signature: %v", err)
 		}
 		if !ok {
-			return false, nil
+			continue
+		}
+		return true, nil
+	}
+	return false, nil
+}
+
+func (p *PKCS7) HasCertificate(cert *x509.Certificate) bool {
+	for _, si := range p.SignerInfo {
+		if si.isCertificate(cert) {
+			return true
 		}
 	}
-	return true, nil
+	return false
 }
 
 func ParsePKCS7(b []byte) (*PKCS7, error) {
 	var pkcs PKCS7
 
-	input := cryptobyte.String(b)
+	contentInfo := cryptobyte.String(b)
 
-	oid, contentInfo, err := parseContentInfo(&input)
-	if err != nil {
-		return nil, fmt.Errorf("failed parsing contenting info: %v", err)
+	var oid encasn1.ObjectIdentifier
+	if ok, err := hasContentInfo(&contentInfo); ok {
+		oid, contentInfo, err = parseContentInfo(&contentInfo)
+		if err != nil {
+			return nil, fmt.Errorf("failed parsing contenting info: %v", err)
+		}
+	} else if err != nil {
+		return nil, fmt.Errorf("failed checking content info: %v", err)
 	}
 
 	pkcs.OID = oid
@@ -407,7 +464,7 @@ func ParsePKCS7(b []byte) (*PKCS7, error) {
 		return nil, errors.New("no digest crypto")
 	}
 
-	algid, err := parseAlgorithmIdentifier(&digest)
+	algid, err := ParseAlgorithmIdentifier(&digest)
 	if err != nil {
 		return nil, fmt.Errorf("failed algorithm identifier: %v", err)
 	}
@@ -440,4 +497,31 @@ func ParsePKCS7(b []byte) (*PKCS7, error) {
 	}
 
 	return &pkcs, nil
+}
+
+type Attributes struct {
+	ContentType   encasn1.ObjectIdentifier
+	MessageDigest []byte
+}
+
+func (a *Attributes) Marshal() []byte {
+	b := cryptobyte.NewBuilder(nil)
+	// Attributes := SET OF Attribute
+	b.AddASN1(asn1.SET, func(b *cryptobyte.Builder) {
+		// Add the content type
+		b.AddASN1(asn1.SEQUENCE, func(b *cryptobyte.Builder) {
+			b.AddASN1ObjectIdentifier(OIDAttributeContentType)
+			b.AddASN1(asn1.SET, func(b *cryptobyte.Builder) {
+				b.AddASN1ObjectIdentifier(a.ContentType)
+			})
+		})
+		// Digest from Authenticode
+		b.AddASN1(asn1.SEQUENCE, func(b *cryptobyte.Builder) {
+			b.AddASN1ObjectIdentifier(OIDAttributeMessageDigest)
+			b.AddASN1(asn1.SET, func(b *cryptobyte.Builder) {
+				b.AddASN1OctetString(a.MessageDigest)
+			})
+		})
+	})
+	return b.BytesOrPanic()
 }
