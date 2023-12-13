@@ -411,7 +411,7 @@ func (p *PKCS7) Verify(cert *x509.Certificate) (bool, error) {
 		}
 		ok, err := si.verify(cert)
 		if err != nil {
-			return false, fmt.Errorf("failed validating signature: %v", err)
+			return false, fmt.Errorf("failed validating signature: %w", err)
 		}
 		if !ok {
 			continue

@@ -14,6 +14,11 @@ import (
 	"github.com/pkg/errors"
 )
 
+var (
+	ErrNoSignatures      = errors.New("binary has no signatures")
+	ErrNoValidSignatures = errors.New("binary has no valid signatures")
+)
+
 // Notes:
 // This library should be using the pkcs7 librar
 
@@ -194,7 +199,10 @@ func (p *PECOFFBinary) Sign(key crypto.Signer, cert *x509.Certificate) ([]byte, 
 func (p *PECOFFBinary) Verify(cert *x509.Certificate) (bool, error) {
 	sigs, err := p.Signatures()
 	if err != nil {
-		return false, fmt.Errorf("failed verifying signatures: %v", err)
+		return false, fmt.Errorf("failed fetching certificates from binary: %v", err)
+	}
+	if len(sigs) == 0 {
+		return false, ErrNoSignatures
 	}
 	for _, sig := range sigs {
 		authcode, err := ParseAuthenticode(sig.Certificate)
@@ -203,14 +211,14 @@ func (p *PECOFFBinary) Verify(cert *x509.Certificate) (bool, error) {
 		}
 		ok, err := authcode.Verify(cert, p.HashContent.Bytes())
 		if err != nil {
-			return false, fmt.Errorf("failed validating signature: %v", err)
+			return false, err
 		}
 		if !ok {
 			continue
 		}
 		return true, nil
 	}
-	return false, errors.New("no valid signatures found")
+	return false, ErrNoValidSignatures
 }
 
 // Return the binary with any appended signatures
