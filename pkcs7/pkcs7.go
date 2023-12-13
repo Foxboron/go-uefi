@@ -387,8 +387,6 @@ func (s *signerinfo) verify(cert *x509.Certificate) (bool, error) {
 }
 
 func (s *signerinfo) isCertificate(cert *x509.Certificate) bool {
-	fmt.Println(cert.RawIssuer)
-	fmt.Println(s.IssuerAndSerialnumber.RawIssuer)
 	if !bytes.Equal(cert.RawIssuer, s.IssuerAndSerialnumber.RawIssuer) {
 		return false
 	}

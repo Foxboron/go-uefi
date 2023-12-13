@@ -184,11 +184,9 @@ func (p *PECOFFBinary) Sign(key crypto.Signer, cert *x509.Certificate) ([]byte, 
 	if err != nil {
 		return nil, fmt.Errorf("failed signing binary: %v", err)
 	}
-	fmt.Println(len(p.fileContent))
 	if err := p.AppendSignature(sig); err != nil {
 		return nil, fmt.Errorf("failed appending signatures: %v", err)
 	}
-	fmt.Println(len(p.fileContent))
 	return sig, nil
 }
 
@@ -198,7 +196,6 @@ func (p *PECOFFBinary) Verify(cert *x509.Certificate) (bool, error) {
 	if err != nil {
 		return false, fmt.Errorf("failed verifying signatures: %v", err)
 	}
-	fmt.Println(len(sigs))
 	for _, sig := range sigs {
 		authcode, err := ParseAuthenticode(sig.Certificate)
 		if err != nil {
