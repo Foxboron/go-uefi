@@ -29,9 +29,12 @@ type datadirectorySignature struct {
 }
 
 type PECOFFBinary struct {
+	// DataDirectory for the Certificate table
 	DataDirectory datadirectorySignature
-	fileContent   []byte
-	HashContent   *bytes.Buffer
+	// Complete file content that has been read
+	fileContent []byte
+	// Reader with the hashable bytes
+	HashContent *bytes.Buffer
 }
 
 func Checksum(b []byte) (*PECOFFBinary, error) {

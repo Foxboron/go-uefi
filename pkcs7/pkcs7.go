@@ -10,6 +10,7 @@ import (
 	"fmt"
 	"log"
 	"math/big"
+	"time"
 
 	"golang.org/x/crypto/cryptobyte"
 	"golang.org/x/crypto/cryptobyte/asn1"
@@ -296,15 +297,25 @@ func parseAttributes(der *cryptobyte.String) (*Attributes, error) {
 		case contentOID.Equal(OIDAttributeMessageDigest):
 			var digest cryptobyte.String
 			if !contentType.ReadASN1(&digest, asn1.OCTET_STRING) {
-				return nil, errors.New("content type set")
+				return nil, errors.New("could not parse message digest")
 			}
 			attributes.MessageDigest = digest
 		case contentOID.Equal(OIDAttributeContentType):
 			var contentTypeOID encasn1.ObjectIdentifier
 			if !contentType.ReadASN1ObjectIdentifier(&contentTypeOID) {
-				return nil, errors.New("content type set")
+				return nil, errors.New("could not parse Content Type")
 			}
 			attributes.ContentType = contentTypeOID
+		case contentOID.Equal(OIDAttributeSigningTime):
+			if !contentType.ReadASN1UTCTime(&attributes.SigningTime) {
+				return nil, errors.New("could not parse Signing Time")
+			}
+		default:
+			// Save the bytes for any attributes we are not parsing.
+			attributes.Other = append(attributes.Other, &unparsedAttribute{
+				Type:  contentOID,
+				Bytes: contentType,
+			})
 		}
 	}
 	return &attributes, nil
@@ -497,9 +508,16 @@ func ParsePKCS7(b []byte) (*PKCS7, error) {
 	return &pkcs, nil
 }
 
+type unparsedAttribute struct {
+	Type  encasn1.ObjectIdentifier
+	Bytes []byte
+}
+
 type Attributes struct {
 	ContentType   encasn1.ObjectIdentifier
 	MessageDigest []byte
+	SigningTime   time.Time
+	Other         []*unparsedAttribute
 }
 
 func (a *Attributes) Marshal() []byte {
@@ -513,6 +531,14 @@ func (a *Attributes) Marshal() []byte {
 				b.AddASN1ObjectIdentifier(a.ContentType)
 			})
 		})
+		if !a.SigningTime.IsZero() {
+			b.AddASN1(asn1.SEQUENCE, func(b *cryptobyte.Builder) {
+				b.AddASN1ObjectIdentifier(OIDAttributeSigningTime)
+				b.AddASN1(asn1.SET, func(b *cryptobyte.Builder) {
+					b.AddASN1UTCTime(a.SigningTime)
+				})
+			})
+		}
 		// Digest from Authenticode
 		b.AddASN1(asn1.SEQUENCE, func(b *cryptobyte.Builder) {
 			b.AddASN1ObjectIdentifier(OIDAttributeMessageDigest)
@@ -520,6 +546,14 @@ func (a *Attributes) Marshal() []byte {
 				b.AddASN1OctetString(a.MessageDigest)
 			})
 		})
+		for _, attr := range a.Other {
+			b.AddASN1(asn1.SEQUENCE, func(b *cryptobyte.Builder) {
+				b.AddASN1ObjectIdentifier(attr.Type)
+				b.AddASN1(asn1.SET, func(b *cryptobyte.Builder) {
+					b.AddBytes(attr.Bytes)
+				})
+			})
+		}
 	})
 	return b.BytesOrPanic()
 }
