@@ -229,6 +229,12 @@ func (p *PECOFFBinary) Bytes() []byte {
 	return p.fileContent
 }
 
+func (p *PECOFFBinary) Hash(h crypto.Hash) []byte {
+	hh := h.New()
+	hh.Write(p.HashContent.Bytes())
+	return hh.Sum(nil)
+}
+
 func (p *PECOFFBinary) signatureBytes() []byte {
 	addr := p.DataDirectory.Datadir.VirtualAddress
 	certSize := p.DataDirectory.Datadir.Size
