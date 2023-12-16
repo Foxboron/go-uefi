@@ -3,7 +3,6 @@ package authenticode
 import (
 	"bytes"
 	"crypto"
-	"crypto/sha256"
 	"crypto/x509"
 	"debug/pe"
 	"encoding/binary"
@@ -37,7 +36,9 @@ type PECOFFBinary struct {
 	HashContent *bytes.Buffer
 }
 
-func Checksum(b []byte) (*PECOFFBinary, error) {
+// Parse a PECOFF Binary.
+// This will read the binary and collect all the bytes we are hashing.
+func Parse(b []byte) (*PECOFFBinary, error) {
 	buf := bytes.NewReader(b)
 	f, err := pe.NewFile(buf)
 	if err != nil {
@@ -185,10 +186,7 @@ func (p *PECOFFBinary) Sign(key crypto.Signer, cert *x509.Certificate) ([]byte, 
 	p.fileContent = append(p.fileContent, paddingBytes...)
 	p.HashContent.Write(paddingBytes)
 
-	// TODO: Should this be a detail of SignAuthenticode?
-	b := sha256.Sum256(p.HashContent.Bytes())
-
-	sig, err := SignAuthenticode(key, cert, b[:], crypto.SHA256)
+	sig, err := SignAuthenticode(key, cert, p.HashContent.Bytes(), crypto.SHA256)
 	if err != nil {
 		return nil, fmt.Errorf("failed signing binary: %v", err)
 	}

@@ -119,7 +119,9 @@ func CreateSpcIndirectDataContent(digest []byte, alg crypto.Hash) ([]byte, error
 }
 
 func SignAuthenticode(signer crypto.Signer, cert *x509.Certificate, digest []byte, alg crypto.Hash) ([]byte, error) {
-	b, err := CreateSpcIndirectDataContent(digest, alg)
+	h := alg.New()
+	h.Write(digest)
+	b, err := CreateSpcIndirectDataContent(h.Sum(nil), alg)
 	if err != nil {
 		return nil, fmt.Errorf("failed creating SpcIndirectDataContent: %v", err)
 	}

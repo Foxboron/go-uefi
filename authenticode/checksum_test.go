@@ -78,7 +78,7 @@ func TestSignVerify(t *testing.T) {
 			if err != nil {
 				log.Fatal(err)
 			}
-			checksum, err := Checksum(b)
+			checksum, err := Parse(b)
 			if err != nil {
 				t.Fatalf("failed checksumming file: %v", err)
 			}
@@ -132,7 +132,7 @@ func TestSbsignSignature(t *testing.T) {
 	for n, c := range cases {
 
 		t.Run(fmt.Sprintf("case %d", n), func(t *testing.T) {
-			checksum, err := Checksum(c.f)
+			checksum, err := Parse(c.f)
 			if err != nil {
 				t.Fatalf("failed checksumming file: %v", err)
 			}

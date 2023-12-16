@@ -63,9 +63,8 @@ var (
 
 func main(){
 	peFile, _ := os.ReadFile("somefile")
-	ctx := pecoff.PECOFFChecksum(peFile)
-	sig, _ := pecoff.CreateSignature(ctx, Cert, Key)
-	b, _ := pecoff.AppendToBinary(ctx, sig)
-	os.WriteFile("somefile.signed", b, 0644)
+	file := authenticode.Parse(peFile)
+	file.Sign(key, cert)
+	os.WriteFile("somefile.signed", file.Bytes(), 0644)
 }
 ```

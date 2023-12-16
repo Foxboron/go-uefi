@@ -12,9 +12,7 @@ func TestVerifyAuthenticode(t *testing.T) {
 	cert, key := asntest.InitCert()
 
 	img := []byte("test")
-	h := crypto.SHA256.New()
-	h.Write(img)
-	b, err := SignAuthenticode(key, cert, h.Sum(nil), crypto.SHA256)
+	b, err := SignAuthenticode(key, cert, img, crypto.SHA256)
 	if err != nil {
 		t.Fatalf("message")
 	}
@@ -59,9 +57,7 @@ func TestCompareOldImplementation(t *testing.T) {
 	}
 
 	img := []byte{0x00, 0x01}
-	h := crypto.SHA256.New()
-	h.Write(img)
-	bb, err := SignAuthenticode(key, cert, h.Sum(nil), crypto.SHA256)
+	bb, err := SignAuthenticode(key, cert, img, crypto.SHA256)
 	if err != nil {
 		t.Fatalf("failed signing digest")
 	}
