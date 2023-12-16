@@ -1,7 +1,12 @@
 package authenticode
 
 import (
+	"bytes"
+	"crypto"
+	"crypto/x509"
 	"encoding/hex"
+	"encoding/pem"
+	"errors"
 	"fmt"
 	"log"
 	"os"
@@ -16,6 +21,24 @@ func mustHexdump(s string) []byte {
 		log.Fatalf("decodeHex: %s", err)
 	}
 	return b
+}
+
+func mustOpen(s string) []byte {
+	b, err := os.ReadFile(s)
+	if err != nil {
+		log.Fatal(err)
+	}
+	return b
+}
+
+func mustCertificate(s string) *x509.Certificate {
+	b := mustOpen(s)
+	block, _ := pem.Decode(b)
+	cert, err := x509.ParseCertificate(block.Bytes)
+	if err != nil {
+		log.Fatal(err)
+	}
+	return cert
 }
 
 func TestSignVerify(t *testing.T) {
@@ -60,10 +83,12 @@ func TestSignVerify(t *testing.T) {
 				t.Fatalf("failed checksumming file: %v", err)
 			}
 
-			_, err = checksum.Sign(key, cert)
+			b, err = checksum.Sign(key, cert)
 			if err != nil {
 				t.Fatalf("failed signing binary: %v", err)
 			}
+
+			os.WriteFile("sig.pk7", b, 0644)
 
 			ok, err := checksum.Verify(cert)
 			if err != nil {
@@ -76,4 +101,60 @@ func TestSignVerify(t *testing.T) {
 		})
 	}
 
+}
+
+func TestSbsignSignature(t *testing.T) {
+	cases := []struct {
+		f        []byte
+		checksum []byte
+		cert     *x509.Certificate
+		err      any
+		ok       bool
+	}{
+		{
+			f:        mustOpen("testdata/test.pecoff"),
+			checksum: mustHexdump("9f2b505ce20bc20c2ce7f7a33cb93ca97d1465735ce6821a6fc8e8c7b1e0e60a"),
+			cert:     mustCertificate("testdata/db.pem"),
+			err:      ErrNoSignatures,
+			ok:       false,
+		},
+		{
+			f:        mustOpen("testdata/test.pecoff.signed"),
+			checksum: mustHexdump("e7d74d2bc1287c17bf056e259ad7d2ca557e848b252509ae9956df0b14f69702"),
+			err:      nil,
+			cert:     mustCertificate("testdata/db.pem"),
+			ok:       true,
+		},
+	}
+
+	// cert, key := asntest.InitCert()
+
+	for n, c := range cases {
+
+		t.Run(fmt.Sprintf("case %d", n), func(t *testing.T) {
+			checksum, err := Checksum(c.f)
+			if err != nil {
+				t.Fatalf("failed checksumming file: %v", err)
+			}
+
+			hashedbytes := checksum.Hash(crypto.SHA256)
+			if !bytes.Equal(c.checksum, hashedbytes) {
+				t.Fatalf("checksums didn't match. expected %x, got %x", c.checksum, hashedbytes)
+			}
+
+			// _, err = checksum.Sign(key, cert)
+			// if err != nil {
+			// 	t.Fatalf("failed signing binary: %v", err)
+			// }
+
+			ok, err := checksum.Verify(c.cert)
+			if !errors.As(err, &c.err) && (err != nil && c.err != nil) {
+				t.Fatalf("failed verify function. expected %v, got %v", c.err, err)
+			}
+
+			if ok != c.ok {
+				t.Fatalf("failed verify binary. expected %v, got %v", c.ok, ok)
+			}
+		})
+	}
 }

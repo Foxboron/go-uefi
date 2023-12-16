@@ -43,5 +43,29 @@ func TestParseSbsign(t *testing.T) {
 	if err != nil {
 		t.Fatalf("failed to parse pkcs7: %v", err)
 	}
+}
 
+// This test compares the library ASN.1 output to the old implementation
+// This is mostly for debugging the implementation.
+func TestCompareOldImplementation(t *testing.T) {
+	if !testing.Verbose() {
+		return
+	}
+	cert, key := asntest.InitCert()
+
+	b, err := os.ReadFile("testdata/old_authenticode_implementation.der")
+	if err != nil {
+		t.Fatal(err)
+	}
+
+	img := []byte{0x00, 0x01}
+	h := crypto.SHA256.New()
+	h.Write(img)
+	bb, err := SignAuthenticode(key, cert, h.Sum(nil), crypto.SHA256)
+	if err != nil {
+		t.Fatalf("failed signing digest")
+	}
+
+	// We should see a couple of differences, but largely the same structure should be present
+	asntest.Asn1Compare(t, b, bb)
 }
