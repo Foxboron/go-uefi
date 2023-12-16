@@ -3,16 +3,13 @@ package main
 import (
 	"flag"
 	"fmt"
-	"io/ioutil"
 	"log"
 	"os"
 
-	"github.com/foxboron/go-uefi/efi/pecoff"
-	"github.com/foxboron/go-uefi/efi/pkcs7"
+	"github.com/foxboron/go-uefi/authenticode"
 	"github.com/foxboron/go-uefi/efi/util"
 )
 
-//"github.com/sassoftware/relic/lib/authenticode"
 func main() {
 	cert := flag.String("cert", "", "Certificate")
 	flag.Parse()
@@ -25,7 +22,7 @@ func main() {
 		os.Exit(1)
 	}
 
-	peFile, err := ioutil.ReadFile(args[0])
+	peFile, err := os.ReadFile(args[0])
 	if err != nil {
 		log.Fatal(err)
 	}
@@ -33,21 +30,20 @@ func main() {
 	if err != nil {
 		log.Fatal(err)
 	}
-	sigs, err := pecoff.GetSignatures(peFile)
+
+	binary, err := authenticode.Parse(peFile)
 	if err != nil {
 		log.Fatal(err)
 	}
-	if len(sigs) == 0 {
-		fmt.Println("No signatures")
+
+	ok, err := binary.Verify(x509Cert)
+	if err != nil {
+		log.Fatal(err)
+	}
+
+	if !ok {
+		fmt.Println("Invalid signature")
 		os.Exit(1)
 	}
-	for _, signature := range sigs {
-		if ok, _ := pkcs7.VerifySignature(x509Cert, signature.Certificate); ok {
-			goto valid
-		}
-	}
-	fmt.Println("Invalid")
-	os.Exit(1)
-valid:
-	fmt.Println("Valid signature!")
+	fmt.Println("Valid signature")
 }
