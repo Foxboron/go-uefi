@@ -78,17 +78,15 @@ func TestSignVerify(t *testing.T) {
 			if err != nil {
 				log.Fatal(err)
 			}
-			checksum, err := Parse(b)
+			checksum, err := Parse(bytes.NewReader(b))
 			if err != nil {
 				t.Fatalf("failed checksumming file: %v", err)
 			}
 
-			b, err = checksum.Sign(key, cert)
+			_, err = checksum.Sign(key, cert)
 			if err != nil {
 				t.Fatalf("failed signing binary: %v", err)
 			}
-
-			os.WriteFile("sig.pk7", b, 0644)
 
 			ok, err := checksum.Verify(cert)
 			if err != nil {
@@ -130,9 +128,8 @@ func TestSbsignSignature(t *testing.T) {
 	// cert, key := asntest.InitCert()
 
 	for n, c := range cases {
-
 		t.Run(fmt.Sprintf("case %d", n), func(t *testing.T) {
-			checksum, err := Parse(c.f)
+			checksum, err := Parse(bytes.NewReader(c.f))
 			if err != nil {
 				t.Fatalf("failed checksumming file: %v", err)
 			}
