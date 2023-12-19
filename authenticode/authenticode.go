@@ -1,3 +1,6 @@
+// Package authenticode implements the Microsoft Authenticode standard.
+//
+// It allows parsing, verifying and signing of PE/COFF binaries.
 package authenticode
 
 import (
@@ -16,20 +19,20 @@ import (
 	"golang.org/x/crypto/cryptobyte/asn1"
 )
 
-// OID
-
 var (
-	// PE/COFF signing specific
 	OIDSpcIndirectDataContent = encasn1.ObjectIdentifier{1, 3, 6, 1, 4, 1, 311, 2, 1, 4}
 	OIDSpcPEImageDataObjID    = encasn1.ObjectIdentifier{1, 3, 6, 1, 4, 1, 311, 2, 1, 15}
 )
 
+// Authenticode represents an authenticode signature.
 type Authenticode struct {
 	Pkcs   *pkcs7.PKCS7
 	Algid  *pkix.AlgorithmIdentifier
 	Digest []byte
 }
 
+// Verify validates an authenticode signature.
+// Note it doesn't validate x509 certificate chains.
 func (a *Authenticode) Verify(cert *x509.Certificate, img []byte) (bool, error) {
 	var h hash.Hash
 	switch {
@@ -51,6 +54,8 @@ func (a *Authenticode) Verify(cert *x509.Certificate, img []byte) (bool, error) 
 	return a.Pkcs.Verify(cert)
 }
 
+// CreateSpcIndirectDataContent creates the SPCIndirectDataContent container as
+// specified int he Authenticode standard.
 func CreateSpcIndirectDataContent(digest []byte, alg crypto.Hash) ([]byte, error) {
 	var b cryptobyte.Builder
 
@@ -118,6 +123,8 @@ func CreateSpcIndirectDataContent(digest []byte, alg crypto.Hash) ([]byte, error
 	return b.Bytes()
 }
 
+// SignAuthenticode signs a digest with the SPC Indirect Data Content as
+// specified by the authenticode standard.
 func SignAuthenticode(signer crypto.Signer, cert *x509.Certificate, digest []byte, alg crypto.Hash) ([]byte, error) {
 	h := alg.New()
 	h.Write(digest)
@@ -128,6 +135,7 @@ func SignAuthenticode(signer crypto.Signer, cert *x509.Certificate, digest []byt
 	return pkcs7.SignPKCS7(signer, cert, OIDSpcIndirectDataContent, b)
 }
 
+// ParseAuthenticode parses an Authenticode signature.
 func ParseAuthenticode(b []byte) (*Authenticode, error) {
 	var auth Authenticode
 	pkcs, err := pkcs7.ParsePKCS7(b)
