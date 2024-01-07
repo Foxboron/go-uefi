@@ -50,6 +50,7 @@ func SignPKCS7(signer crypto.Signer, cert *x509.Certificate, oid encasn1.ObjectI
 	attrs := &Attributes{
 		ContentType:   oid,
 		MessageDigest: h.Sum(nil),
+		SigningTime:   time.Now().UTC(),
 	}
 	attributes := attrs.Marshal()
 	h = crypto.SHA256.New()
