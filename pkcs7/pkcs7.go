@@ -207,7 +207,7 @@ func hasContentInfo(der *cryptobyte.String) (bool, error) {
 	return true, nil
 }
 
-func parseContentInfo(der *cryptobyte.String) (oid encasn1.ObjectIdentifier, content cryptobyte.String, err error) {
+func ParseContentInfo(der *cryptobyte.String) (oid encasn1.ObjectIdentifier, content cryptobyte.String, err error) {
 	var s cryptobyte.String
 
 	if !der.ReadASN1(&s, asn1.SEQUENCE) {
@@ -448,7 +448,7 @@ func ParsePKCS7(b []byte) (*PKCS7, error) {
 
 	var oid encasn1.ObjectIdentifier
 	if ok, err := hasContentInfo(&contentInfo); ok {
-		oid, contentInfo, err = parseContentInfo(&contentInfo)
+		oid, contentInfo, err = ParseContentInfo(&contentInfo)
 		if err != nil {
 			return nil, fmt.Errorf("failed parsing contenting info: %v", err)
 		}
@@ -479,7 +479,7 @@ func ParsePKCS7(b []byte) (*PKCS7, error) {
 	}
 	pkcs.AlgorithmIdentifier = algid
 
-	oid, content, err := parseContentInfo(&signedData)
+	oid, content, err := ParseContentInfo(&signedData)
 	if err != nil {
 		return nil, fmt.Errorf("failed parsing content info: %v", err)
 	}
