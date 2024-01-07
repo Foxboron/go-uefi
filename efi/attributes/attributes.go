@@ -19,6 +19,10 @@ import (
 // Section 8.2 Variable Services
 type Attributes uint32
 
+func (a Attributes) Equal(b Attributes) bool {
+	return (a & b) == a
+}
+
 var SizeofAttributes = 4
 
 const (
