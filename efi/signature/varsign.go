@@ -149,6 +149,18 @@ func NewEFIVariableAuthentication2() *EFIVariableAuthentication2 {
 	}
 }
 
+func (e *EFIVariableAuthentication2) Marshal(b *bytes.Buffer) {
+	WriteEFIVariableAuthencation2(b, *e)
+}
+
+func (e *EFIVariableAuthentication2) Verify(cert *x509.Certificate) (bool, error) {
+	signature, err := pkcs7.ParsePKCS7(e.AuthInfo.CertData)
+	if err != nil {
+		return false, err
+	}
+	return signature.Verify(cert)
+}
+
 func ReadEFIVariableAuthencation2(f io.Reader) (*EFIVariableAuthentication2, error) {
 	var efi EFIVariableAuthentication2
 	if err := binary.Read(f, binary.LittleEndian, &efi.Time); err != nil {

@@ -143,6 +143,19 @@ func (sd *SignatureDatabase) Bytes() []byte {
 	return buf.Bytes()
 }
 
+func (sd *SignatureDatabase) Marshal(b *bytes.Buffer) {
+	WriteSignatureDatabase(b, *sd)
+}
+
+func (sd *SignatureDatabase) Unmarshal(b *bytes.Buffer) error {
+	s, err := ReadSignatureDatabase(b)
+	if err != nil {
+		return err
+	}
+	*sd = s
+	return nil
+}
+
 // Write a signature database which contains a slice of SignautureLists
 func WriteSignatureDatabase(b io.Writer, sigdb SignatureDatabase) {
 	for _, l := range sigdb {
