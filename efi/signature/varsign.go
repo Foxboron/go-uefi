@@ -2,11 +2,13 @@ package signature
 
 import (
 	"bytes"
+	"crypto/x509"
 	"encoding/binary"
 	"io"
 	"log"
 
 	"github.com/foxboron/go-uefi/efi/util"
+	"github.com/foxboron/go-uefi/pkcs7"
 	"github.com/pkg/errors"
 )
 
