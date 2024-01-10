@@ -111,7 +111,7 @@ func TestSbsignSignature(t *testing.T) {
 	}{
 		{
 			f:        mustOpen("testdata/test.pecoff"),
-			checksum: mustHexdump("9f2b505ce20bc20c2ce7f7a33cb93ca97d1465735ce6821a6fc8e8c7b1e0e60a"),
+			checksum: mustHexdump("e7d74d2bc1287c17bf056e259ad7d2ca557e848b252509ae9956df0b14f69702"),
 			cert:     mustCertificate("testdata/db.pem"),
 			err:      ErrNoSignatures,
 			ok:       false,
