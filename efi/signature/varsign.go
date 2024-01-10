@@ -2,12 +2,16 @@ package signature
 
 import (
 	"bytes"
+	"crypto"
 	"crypto/x509"
 	"encoding/binary"
 	"io"
 	"log"
 
 	"github.com/foxboron/go-uefi/efi/util"
+	"github.com/foxboron/go-uefi/efivar"
+	"golang.org/x/crypto/cryptobyte"
+
 	"github.com/foxboron/go-uefi/pkcs7"
 	"github.com/pkg/errors"
 )
@@ -155,12 +159,87 @@ func (e *EFIVariableAuthentication2) Marshal(b *bytes.Buffer) {
 	WriteEFIVariableAuthencation2(b, *e)
 }
 
+func (e *EFIVariableAuthentication2) Unmarshal(b *bytes.Buffer) error {
+	auth, err := ReadEFIVariableAuthencation2(b)
+	if err != nil {
+		return err
+	}
+	*e = *auth
+	return nil
+}
+
 func (e *EFIVariableAuthentication2) Verify(cert *x509.Certificate) (bool, error) {
 	signature, err := pkcs7.ParsePKCS7(e.AuthInfo.CertData)
 	if err != nil {
 		return false, err
 	}
 	return signature.Verify(cert)
+}
+
+// We should maybe not duplicate this
+type efibytes bytes.Buffer
+
+func (e efibytes) Marshal(b *bytes.Buffer) {
+	if _, err := io.Copy(b, (*bytes.Buffer)(&e)); err != nil {
+		return
+	}
+}
+
+func SignEFIVariable(v efivar.Efivar, m efivar.Marshallable, key crypto.Signer, cert *x509.Certificate) (*EFIVariableAuthentication2, efivar.Marshallable, error) {
+	authvar := NewEFIVariableAuthentication2()
+
+	// Bytes of the signaturedatabase (probably)
+	var sb bytes.Buffer
+
+	// Buffer for the bytes we are signing
+	var buf bytes.Buffer
+
+	s := []byte{}
+	for _, n := range []byte(v.Name) {
+		s = append(s, n, 0x00)
+	}
+
+	// Marshal the bytes so we can include them in for our signed data
+	m.Marshal(&sb)
+
+	writeOrder := []interface{}{
+		s,
+		*v.GUID,
+		v.Attributes,
+		authvar.Time,
+		sb.Bytes(),
+	}
+	for _, d := range writeOrder {
+		if err := binary.Write(&buf, binary.LittleEndian, d); err != nil {
+			log.Fatal(err)
+		}
+	}
+
+	h := crypto.SHA256.New()
+	h.Write(buf.Bytes())
+
+	der, err := pkcs7.SignPKCS7(key, cert, pkcs7.OIDData, h.Sum(nil))
+	if err != nil {
+		return nil, nil, err
+	}
+
+	// We need to unwrap the outer ContentInfo layer
+	cs := cryptobyte.String(der)
+	_, signature, err := pkcs7.ParseContentInfo(&cs)
+	if err != nil {
+		return nil, nil, err
+	}
+
+	authvar.AuthInfo.Header.Length += uint32(len(signature))
+	authvar.AuthInfo.CertData = signature
+
+	// Create a marshallable variable we can give to WriteVar
+	// Wrapper which contains the Auth header with the Marshallable bytes behind
+	var auth efibytes
+	authvar.Marshal((*bytes.Buffer)(&auth))
+	m.Marshal((*bytes.Buffer)(&auth))
+
+	return authvar, auth, nil
 }
 
 func ReadEFIVariableAuthencation2(f io.Reader) (*EFIVariableAuthentication2, error) {
