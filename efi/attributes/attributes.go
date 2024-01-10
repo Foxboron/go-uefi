@@ -19,11 +19,21 @@ import (
 // Section 8.2 Variable Services
 type Attributes uint32
 
+var SizeofAttributes = 4
+
 func (a Attributes) Equal(b Attributes) bool {
 	return (a & b) == a
 }
 
-var SizeofAttributes = 4
+func (a Attributes) Unmarshal(b *bytes.Buffer) {
+	binary.Write(b, binary.LittleEndian, a)
+}
+
+func (a Attributes) Bytes() []byte {
+	buf := new(bytes.Buffer)
+	a.Unmarshal(buf)
+	return buf.Bytes()
+}
 
 const (
 	EFI_VARIABLE_NON_VOLATILE                          Attributes = 0x00000001
