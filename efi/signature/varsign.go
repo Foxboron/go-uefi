@@ -215,10 +215,7 @@ func SignEFIVariable(v efivar.Efivar, m efivar.Marshallable, key crypto.Signer, 
 		}
 	}
 
-	h := crypto.SHA256.New()
-	h.Write(buf.Bytes())
-
-	der, err := pkcs7.SignPKCS7(key, cert, pkcs7.OIDData, h.Sum(nil))
+	der, err := pkcs7.SignPKCS7(key, cert, pkcs7.OIDData, buf.Bytes())
 	if err != nil {
 		return nil, nil, err
 	}
