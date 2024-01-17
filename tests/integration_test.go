@@ -1,32 +1,172 @@
-//go:build integration
-// +build integration
-
-package tests
+package itest
 
 import (
+	"bytes"
+	"errors"
+	"fmt"
+	"io"
+	"log"
+	"os"
+	"path"
+	"path/filepath"
 	"testing"
+	"time"
 
-	"github.com/foxboron/go-uefi/tests/utils"
+	"github.com/Netflix/go-expect"
+	"github.com/foxboron/go-uefi/authenticode"
+	"github.com/foxboron/go-uefi/efi/util"
+	"github.com/hugelgupf/vmtest"
+	"github.com/hugelgupf/vmtest/qemu"
 )
 
-func TestKeyEnrollment(t *testing.T) {
-	conf := utils.NewConfig()
-	conf.AddFile("./ovmf/keys/db/db.key")
-	conf.AddFile("./ovmf/keys/db/db.pem")
-	conf.AddFile("./ovmf/keys/KEK/KEK.key")
-	conf.AddFile("./ovmf/keys/KEK/KEK.pem")
-	conf.AddFile("./ovmf/keys/PK/PK.key")
-	conf.AddFile("./ovmf/keys/PK/PK.pem")
-	utils.WithVM(conf,
-		func(vm *utils.TestVM) {
-			t.Run("Check SetupMode enabled", vm.RunTest("./integrations/secureboot_disabled_test.go"))
-			t.Run("Enroll Keys", vm.RunTest("./integrations/enroll_keys_test.go"))
-		})
+func CopyFile(src, dst string) bool {
+	source, err := os.Open(src)
+	if err != nil {
+		log.Fatal(err)
+	}
+	defer source.Close()
 
-	utils.WithVM(conf,
-		func(vm *utils.TestVM) {
-			t.Run("Check SecureBoot enabled", vm.RunTest("./integrations/secureboot_enabled_test.go"))
-			t.Run("Check remove PK", vm.RunTest("./integrations/remove_pk_test.go"))
-			t.Run("Check rewrite dbx", vm.RunTest("./integrations/modify_dbx_test.go"))
-		})
+	f, err := os.OpenFile(dst, os.O_RDWR|os.O_CREATE|os.O_TRUNC, 0644)
+	if err != nil {
+		log.Fatal(err)
+	}
+	defer f.Close()
+	io.Copy(f, source)
+	si, err := os.Stat(src)
+	if err != nil {
+		log.Fatal(err)
+	}
+	err = os.Chmod(dst, si.Mode())
+	if err != nil {
+		log.Fatal(err)
+	}
+	return true
+}
+
+type VMTest struct {
+	ovmf    string
+	secboot string
+}
+
+func (vm *VMTest) RunTests(packages ...string) func(t *testing.T) {
+	return func(t *testing.T) {
+		vmtest.RunGoTestsInVM(t, packages,
+			vmtest.WithVMOpt(
+				vmtest.WithSharedDir("ovmf/keys"),
+				vmtest.WithQEMUFn(
+					qemu.WithVMTimeout(time.Minute),
+					qemu.WithQEMUCommand("qemu-system-x86_64 -enable-kvm"),
+					qemu.WithKernel("bzImage"),
+					qemu.ArbitraryArgs(
+						"-m", "1G", "-machine", "type=q35,smm=on",
+						"-drive", fmt.Sprintf("if=pflash,format=raw,unit=0,file=%s,readonly=on", vm.secboot),
+						"-drive", fmt.Sprintf("if=pflash,format=raw,unit=1,file=%s", vm.ovmf),
+					),
+				)),
+		)
+	}
+}
+
+var (
+	errOK      = errors.New("OK")
+	errFAIL    = errors.New("FAIL")
+	startupnsh = `
+@echo -off
+echo Starting UEFI application...
+fs0:
+HelloWorld.efi.signed
+`
+)
+
+func (vm *VMTest) RunKernelTests(packages ...string) func(t *testing.T) {
+	return func(t *testing.T) {
+		dir := t.TempDir()
+
+		// Get some signing keys
+		dbPem, _ := os.ReadFile("ovmf/keys/db/db.pem")
+		dbKey, _ := os.ReadFile("ovmf/keys/db/db.key")
+		key, _ := util.ReadKey(dbKey)
+		cert, _ := util.ReadCert(dbPem)
+
+		// Sign HelloWorld.efi binary
+		peFile, _ := os.Open("binaries/HelloWorld.efi")
+		file, err := authenticode.Parse(peFile)
+		if err != nil {
+			t.Fatalf("failed authenticode.Parse: %v", err)
+		}
+		_, err = file.Sign(key, cert)
+		if err != nil {
+			t.Fatalf("failed PECOFFBinary.Sign: %v", err)
+		}
+
+		os.WriteFile(filepath.Join(dir, "HelloWorld.efi.signed"), file.Bytes(), 0o755)
+		os.WriteFile(filepath.Join(dir, "startup.nsh"), []byte(startupnsh), 0o755)
+
+		vm, err := qemu.Start(
+			qemu.ArchAMD64,
+			qemu.WithQEMUCommand("qemu-system-x86_64"),
+			qemu.WithVMTimeout(time.Minute),
+			qemu.ReadOnlyDirectory(dir),
+			qemu.ArbitraryArgs(
+				// Disabled iPXE boot
+				"-net", "none",
+				"-machine", "type=q35,smm=on",
+				"-drive", fmt.Sprintf("if=pflash,format=raw,unit=0,file=%s,readonly", vm.secboot),
+				"-drive", fmt.Sprintf("if=pflash,format=raw,unit=1,file=%s", vm.ovmf)),
+			func() qemu.Fn {
+				// Only print VM output when we do VMTEST_VERBOSE
+				if _, ok := os.LookupEnv("VMTEST_VERBOSE"); !ok {
+					return func(*qemu.IDAllocator, *qemu.Options) error {
+						return nil
+					}
+				}
+				return qemu.LogSerialByLine(qemu.PrintLineWithPrefix("vm", t.Logf))
+			}(),
+		)
+		if err != nil {
+			t.Fatalf("Failed to start VM: %v", err)
+		}
+
+		if _, ok := os.LookupEnv("VMTEST_VERBOSE"); ok {
+			t.Logf("QEMU command line to reproduce:\n%s", vm.CmdlineQuoted())
+		}
+
+		go vm.Wait()
+
+		_, err = vm.Console.Expect(
+			expect.String("Access Denied").Then(func(buf *bytes.Buffer) error {
+				return errFAIL
+			}),
+			expect.String("HelloWorld").Then(func(buf *bytes.Buffer) error {
+				return errOK
+			}),
+		)
+
+		if errors.Is(err, errFAIL) {
+			t.Fatalf("failed signature validation")
+		}
+	}
+}
+
+// Sets up the test by making a copy of the OVMF files from the system
+func WithVM(t *testing.T, fn func(*VMTest)) {
+	t.Helper()
+	dir := t.TempDir()
+	vm := VMTest{
+		ovmf:    path.Join(dir, "OVMF_VARS.fd"),
+		secboot: path.Join(dir, "OVMF_CODE.secboot.fd"),
+	}
+	CopyFile("/usr/share/edk2-ovmf/x64/OVMF_VARS.fd", vm.ovmf)
+	CopyFile("/usr/share/edk2-ovmf/x64/OVMF_CODE.secboot.fd", vm.secboot)
+	fn(&vm)
+}
+
+func TestSecureBoot(t *testing.T) {
+	os.Setenv("VMTEST_QEMU", "qemu-system-x86_64")
+
+	WithVM(t, func(vm *VMTest) {
+		t.Run("Enroll keys", vm.RunTests("github.com/foxboron/go-uefi/tests/tests/enroll_keys"))
+		t.Run("Secure Boot Enabled", vm.RunTests("github.com/foxboron/go-uefi/tests/tests/secure_boot_enabled"))
+		t.Run("Boot signed kernel", vm.RunKernelTests())
+	})
 }
