@@ -78,7 +78,8 @@ HelloWorld.efi.signed
 `
 )
 
-func (vm *VMTest) RunKernelTests(packages ...string) func(t *testing.T) {
+// Signs HelloWorld.efi and attempts to run it within tianocore
+func (v *VMTest) RunKernelTests(packages ...string) func(t *testing.T) {
 	return func(t *testing.T) {
 		dir := t.TempDir()
 
@@ -102,34 +103,27 @@ func (vm *VMTest) RunKernelTests(packages ...string) func(t *testing.T) {
 		os.WriteFile(filepath.Join(dir, "HelloWorld.efi.signed"), file.Bytes(), 0o755)
 		os.WriteFile(filepath.Join(dir, "startup.nsh"), []byte(startupnsh), 0o755)
 
-		vm, err := qemu.Start(
-			qemu.ArchAMD64,
-			qemu.WithQEMUCommand("qemu-system-x86_64"),
-			qemu.WithVMTimeout(time.Minute),
-			qemu.ReadOnlyDirectory(dir),
-			qemu.ArbitraryArgs(
-				// Disabled iPXE boot
-				"-net", "none",
-				"-machine", "type=q35,smm=on",
-				"-drive", fmt.Sprintf("if=pflash,format=raw,unit=0,file=%s,readonly", vm.secboot),
-				"-drive", fmt.Sprintf("if=pflash,format=raw,unit=1,file=%s", vm.ovmf)),
-			func() qemu.Fn {
-				// Only print VM output when we do VMTEST_VERBOSE
-				if _, ok := os.LookupEnv("VMTEST_VERBOSE"); !ok {
-					return func(*qemu.IDAllocator, *qemu.Options) error {
+		vm := vmtest.StartVM(t,
+			vmtest.WithArch(qemu.ArchAMD64),
+			vmtest.WithQEMUFn(
+				qemu.WithQEMUCommand("qemu-system-x86_64"),
+				qemu.WithVMTimeout(time.Minute),
+				qemu.WithKernel(""),
+				qemu.ReadOnlyDirectory(dir),
+				qemu.ArbitraryArgs(
+					// Disabled iPXE boot
+					"-net", "none",
+					"-machine", "type=q35,smm=on",
+					"-drive", fmt.Sprintf("if=pflash,format=raw,unit=0,file=%s,readonly", v.secboot),
+					"-drive", fmt.Sprintf("if=pflash,format=raw,unit=1,file=%s", v.ovmf)),
+				func() qemu.Fn {
+					return func(alloc *qemu.IDAllocator, opts *qemu.Options) error {
+						opts.KernelArgs = ""
 						return nil
 					}
-				}
-				return qemu.LogSerialByLine(qemu.PrintLineWithPrefix("vm", t.Logf))
-			}(),
+				}(),
+			),
 		)
-		if err != nil {
-			t.Fatalf("Failed to start VM: %v", err)
-		}
-
-		if _, ok := os.LookupEnv("VMTEST_VERBOSE"); ok {
-			t.Logf("QEMU command line to reproduce:\n%s", vm.CmdlineQuoted())
-		}
 
 		go vm.Wait()
 

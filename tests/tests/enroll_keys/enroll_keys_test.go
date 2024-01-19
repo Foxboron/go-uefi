@@ -9,9 +9,12 @@ import (
 	"github.com/foxboron/go-uefi/efi/util"
 	"github.com/foxboron/go-uefi/efivar"
 	"github.com/foxboron/go-uefi/efivarfs"
+	"github.com/hugelgupf/vmtest/guest"
 )
 
 func TestSecureBootDisabled(t *testing.T) {
+	guest.SkipIfNotInVM(t)
+
 	if efi.GetSecureBoot() {
 		t.Fatal("in secure boot mode")
 	}
@@ -32,6 +35,8 @@ func Enroll(efifs *efivarfs.Efivarfs, cert, signerKey, signerPem []byte, efivar 
 }
 
 func TestEnrollKeys(t *testing.T) {
+	guest.SkipIfNotInVM(t)
+
 	PKKey, _ := os.ReadFile("/testdata/PK/PK.key")
 	PKPem, _ := os.ReadFile("/testdata/PK/PK.pem")
 	KEKKey, _ := os.ReadFile("/testdata/KEK/KEK.key")
@@ -55,6 +60,8 @@ func TestEnrollKeys(t *testing.T) {
 }
 
 func TestOutOfSetupMode(t *testing.T) {
+	guest.SkipIfNotInVM(t)
+
 	if efi.GetSetupMode() {
 		t.Fatal("still inside setup mode")
 	}
