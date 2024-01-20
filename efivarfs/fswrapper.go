@@ -181,10 +181,15 @@ func (t *FSWrapper) ReadEfivarsWithGuid(filename string, guid util.EFIGUID) (att
 func (t *FSWrapper) WriteEfivarsWithGuid(name string, attrs attributes.Attributes, b []byte, guid util.EFIGUID) error {
 	efivar := path.Join(attributes.Efivars, fmt.Sprintf("%s-%s", name, guid.Format()))
 
+	if err := t.isimmutable(efivar); err != nil {
+		return err
+	}
+
 	flags := os.O_WRONLY | os.O_CREATE //| os.O_TRUNC
 	if attrs&attributes.EFI_VARIABLE_APPEND_WRITE != 0 {
 		flags |= os.O_APPEND
 	}
+
 	f, err := t.fs.OpenFile(efivar, flags, 0644)
 	if err != nil {
 		return fmt.Errorf("couldn't open file: %w", err)
