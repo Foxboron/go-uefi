@@ -73,11 +73,10 @@ func (e *Efivarfs) WriteSignedUpdate(v efivar.Efivar, m efivar.Marshallable, key
 	// The reason why we do this is because we are wrapping a bytes.Butter in a
 	// marshaller interface to pass through the layers
 	// I haven't decided if this is.. elegant or not.
-	_, marshal, err := signature.SignEFIVariable(efivar.Db, m, key, cert)
+	_, marshal, err := signature.SignEFIVariable(v, m, key, cert)
 	if err != nil {
 		return err
 	}
 
-	e.WriteVar(v, marshal)
-	return nil
+	return e.WriteVar(v, marshal)
 }
