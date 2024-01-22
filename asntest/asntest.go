@@ -2,10 +2,12 @@
 package asntest
 
 import (
+	"bytes"
 	"crypto/rand"
 	"crypto/rsa"
 	"crypto/x509"
 	"crypto/x509/pkix"
+	"encoding/pem"
 	"fmt"
 	"log"
 	"math/big"
@@ -38,6 +40,26 @@ func InitCert() (*x509.Certificate, *rsa.PrivateKey) {
 	derBytes, _ := x509.CreateCertificate(rand.Reader, &c, &c, &priv.PublicKey, priv)
 	cert, _ := x509.ParseCertificate(derBytes)
 	return cert, priv
+}
+
+func CertToBytes(cert *x509.Certificate) []byte {
+	certOut := new(bytes.Buffer)
+	if err := pem.Encode(certOut, &pem.Block{Type: "CERTIFICATE", Bytes: cert.Raw}); err != nil {
+		log.Fatalf("Failed to write data to cert.pem: %v", err)
+	}
+	return certOut.Bytes()
+}
+
+func RSAToBytes(r *rsa.PrivateKey) []byte {
+	privateKeyBytes, err := x509.MarshalPKCS8PrivateKey(r)
+	if err != nil {
+		log.Fatalf("Unable to marshal private key: %v", err)
+	}
+	keyOut := new(bytes.Buffer)
+	if err := pem.Encode(keyOut, &pem.Block{Type: "PRIVATE KEY", Bytes: privateKeyBytes}); err != nil {
+		log.Fatalf("Failed to write data to key.pem: %v", err)
+	}
+	return keyOut.Bytes()
 }
 
 func Asn1Parse(t *testing.T, buf []byte) []byte {

@@ -162,5 +162,7 @@ func TestSecureBoot(t *testing.T) {
 		t.Run("Enroll keys", vm.RunTests("github.com/foxboron/go-uefi/tests/tests/enroll_keys"))
 		t.Run("Secure Boot Enabled", vm.RunTests("github.com/foxboron/go-uefi/tests/tests/secure_boot_enabled"))
 		t.Run("Boot signed kernel", vm.RunKernelTests())
+		t.Run("Modify dbx variable", vm.RunTests("github.com/foxboron/go-uefi/tests/tests/modify_dbx"))
+		t.Run("Replace PK and rotate keys", vm.RunTests("github.com/foxboron/go-uefi/tests/tests/remove_pk"))
 	})
 }
