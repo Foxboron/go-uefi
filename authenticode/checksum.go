@@ -32,24 +32,34 @@ type PECOFFBinary struct {
 	// Complete file content that has been read
 	fileContent *readers
 	length      int
-	optDataDir  *bytes.Buffer
+	optDataDir  *bytes.Reader
 	certTable   *bytes.Buffer
 }
 
 // Internal reader representation of the file we are dealing with
-type readers []io.Reader
+type readers []io.ReadSeeker
 
-func (r *readers) Add(newreader io.Reader) {
+func (r *readers) Add(newreader io.ReadSeeker) {
 	*r = append(*r, newreader)
 }
 
-func (r *readers) AddOffsetWriter(newreader io.ReaderAt, off, n int64) {
+func (r *readers) AddOffsetReader(newreader io.ReaderAt, off, n int64) {
 	sr := io.NewSectionReader(newreader, off, n-off)
 	r.Add(sr)
 }
 
-func (r readers) Multiwriter() io.Reader {
-	return io.MultiReader(r...)
+func (r readers) Multireader() io.Reader {
+	var rs []io.Reader
+	for _, rr := range r {
+		rs = append(rs, (io.Reader)(rr))
+	}
+	return io.MultiReader(rs...)
+}
+
+func (r readers) Reset() {
+	for _, rr := range r {
+		rr.Seek(0, io.SeekStart)
+	}
 }
 
 // Parse a PECOFF Binary.
@@ -144,9 +154,11 @@ func Parse(r io.ReaderAt) (*PECOFFBinary, error) {
 	dd4end := dd4start + 8
 
 	// We save this so we can replace the optDataDir at a later point
-	var optDataDir bytes.Buffer
-	filecontent.Add(io.LimitReader(&optDataDir, 8))
-	// filecontent.AddOffsetWriter(r, dd4start, dd4end)
+	var datadir bytes.Buffer
+	readSection(r, &datadir, dd4start, dd4end)
+
+	optDataDir := bytes.NewReader(datadir.Bytes())
+	filecontent.AddOffsetReader(optDataDir, 0, 8)
 
 	// 7. Exclude the Certificate Table entry from the calculation and hash everything
 	// from the end of the Certificate Table entry to the end of image header,
@@ -221,16 +233,20 @@ func Parse(r io.ReaderAt) (*PECOFFBinary, error) {
 	// rest.Len() should be the complete remaining bytes.
 	fileSize += rest.Len()
 
-	filecontent.AddOffsetWriter(r, sumOfBytesHashed, int64(rest.Len()))
-
-	// Truncate the buffer with buffer length minus the certificate directory size
+	// length minus the certificate directory size
 	// this should give us a buffer with everything up ontil the certificates we can hash.
-	rest.Truncate(rest.Len() - int(ddEntry.Size))
+	binaryRest := rest.Len() - int(ddEntry.Size)
+
+	// Truncate the buffer with buffer length.
+	rest.Truncate(binaryRest)
 
 	// Copy the remaining bytes into the hashbuffer
 	if _, err := io.Copy(hashBuffer, &rest); err != nil {
 		return nil, err
 	}
+
+	// Add an offset reader to read all the remaining bytes
+	filecontent.AddOffsetReader(r, sumOfBytesHashed, int64(binaryRest))
 
 	// If FILE_SIZE is not a multiple of 8 bytes, the data added to the hash must be appended with zero
 	// padding of length (8 – (FILE_SIZE % 8)) bytes.
@@ -248,12 +264,12 @@ func Parse(r io.ReaderAt) (*PECOFFBinary, error) {
 	if _, err := io.Copy(&certTable, sr); err != nil {
 		return nil, err
 	}
-	filecontent.Add(&certTable)
+	// filecontent.Add(&certTable)
 
 	return &PECOFFBinary{
 		fileContent: &filecontent,
 		length:      fileSize,
-		optDataDir:  &optDataDir,
+		optDataDir:  optDataDir,
 		certTable:   &certTable,
 		HashContent: hashBuffer,
 		Datadir:     ddEntry,
@@ -290,9 +306,12 @@ func (p *PECOFFBinary) AppendSignature(sig []byte) error {
 	p.certTable.Write(padBytes)
 
 	// Write to the 8 byte LimitedReader we have inserted into our MultiWriter
-	if err := binary.Write(p.optDataDir, binary.LittleEndian, &p.Datadir); err != nil {
+	var b bytes.Buffer
+	if err := binary.Write(&b, binary.LittleEndian, &p.Datadir); err != nil {
 		return fmt.Errorf("failed appending signature: %v", err)
 	}
+
+	p.optDataDir = bytes.NewReader(b.Bytes())
 
 	return nil
 }
@@ -339,9 +358,11 @@ func (p *PECOFFBinary) Verify(cert *x509.Certificate) (bool, error) {
 // Return the binary with any appended signatures
 func (p *PECOFFBinary) Bytes() []byte {
 	var b bytes.Buffer
-	if _, err := io.Copy(&b, p.fileContent.Multiwriter()); err != nil {
-		log.Fatalf("failed reading from Multiwriter: %v", err)
+	if _, err := io.Copy(&b, p.fileContent.Multireader()); err != nil {
+		log.Fatalf("failed reading from Multireader: %v", err)
 	}
+	b.Write(p.certTable.Bytes())
+	p.fileContent.Reset()
 	return b.Bytes()
 }
 

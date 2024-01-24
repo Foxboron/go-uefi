@@ -13,6 +13,7 @@ import (
 	"testing"
 
 	"github.com/foxboron/go-uefi/asntest"
+	"github.com/foxboron/go-uefi/efi/pecoff"
 )
 
 func mustHexdump(s string) []byte {
@@ -103,25 +104,31 @@ func TestSignVerify(t *testing.T) {
 
 func TestSbsignSignature(t *testing.T) {
 	cases := []struct {
-		f        []byte
-		checksum []byte
-		cert     *x509.Certificate
-		err      any
-		ok       bool
+		f         []byte
+		checksum  []byte
+		cert      *x509.Certificate
+		err       any
+		ok        bool
+		size      int
+		fchecksum []byte
 	}{
 		{
-			f:        mustOpen("testdata/test.pecoff"),
-			checksum: mustHexdump("e7d74d2bc1287c17bf056e259ad7d2ca557e848b252509ae9956df0b14f69702"),
-			cert:     mustCertificate("testdata/db.pem"),
-			err:      ErrNoSignatures,
-			ok:       false,
+			f:         mustOpen("testdata/test.pecoff"),
+			checksum:  mustHexdump("e7d74d2bc1287c17bf056e259ad7d2ca557e848b252509ae9956df0b14f69702"),
+			cert:      mustCertificate("testdata/db.pem"),
+			err:       ErrNoSignatures,
+			ok:        false,
+			size:      3825,
+			fchecksum: mustHexdump("c821d06f18e84ecd33d9a53954d366d76b5c595f5819a5076009106601fc8c31"),
 		},
 		{
-			f:        mustOpen("testdata/test.pecoff.signed"),
-			checksum: mustHexdump("e7d74d2bc1287c17bf056e259ad7d2ca557e848b252509ae9956df0b14f69702"),
-			err:      nil,
-			cert:     mustCertificate("testdata/db.pem"),
-			ok:       true,
+			f:         mustOpen("testdata/test.pecoff.signed"),
+			checksum:  mustHexdump("e7d74d2bc1287c17bf056e259ad7d2ca557e848b252509ae9956df0b14f69702"),
+			err:       nil,
+			cert:      mustCertificate("testdata/db.pem"),
+			ok:        true,
+			size:      6064,
+			fchecksum: mustHexdump("1f9eee26e7e041b286bc42e220c2398594a6a2b25863155a7d88fd4e98ef5192"),
 		},
 	}
 
@@ -139,6 +146,17 @@ func TestSbsignSignature(t *testing.T) {
 				t.Fatalf("checksums didn't match. expected %x, got %x", c.checksum, hashedbytes)
 			}
 
+			if len(checksum.Bytes()) != c.size {
+				t.Fatalf("incorrect size. expected %v, got %v", len(checksum.Bytes()), c.size)
+			}
+
+			h := crypto.SHA256.New()
+			h.Write(checksum.Bytes())
+
+			if !bytes.Equal(h.Sum(nil), c.fchecksum) {
+				t.Fatalf("incorrect checksum.")
+			}
+
 			// _, err = checksum.Sign(key, cert)
 			// if err != nil {
 			// 	t.Fatalf("failed signing binary: %v", err)
@@ -154,4 +172,35 @@ func TestSbsignSignature(t *testing.T) {
 			}
 		})
 	}
+}
+
+func TestWriteAndRead(t *testing.T) {
+	f := mustOpen("testdata/test.pecoff.signed")
+
+	cert := mustCertificate("testdata/db.pem")
+
+	binary, _ := Parse(bytes.NewReader(f))
+
+	data := binary.Bytes()
+
+	os.WriteFile("reconstructed.pecoff", data, 0o655)
+
+	coff, err := Parse(bytes.NewReader(data))
+	if err != nil {
+		t.Fatalf("failed parsing out written binary: %v", err)
+	}
+
+	h := crypto.SHA256.New()
+	h.Write(coff.Bytes())
+	fmt.Printf("%x\n", h.Sum(nil))
+
+	ok, err := coff.Verify(cert)
+	if err != nil {
+		t.Fatalf("failed verify: %v", err)
+	}
+
+	if !ok {
+		t.Fatalf("should be true")
+	}
+
 }
