@@ -10,6 +10,7 @@ import (
 	"fmt"
 	"log"
 	"os"
+	"path"
 	"testing"
 
 	"github.com/foxboron/go-uefi/asntest"
@@ -175,6 +176,7 @@ func TestSbsignSignature(t *testing.T) {
 }
 
 func TestWriteAndRead(t *testing.T) {
+	d := t.TempDir()
 	f := mustOpen("testdata/test.pecoff.signed")
 
 	cert := mustCertificate("testdata/db.pem")
@@ -183,7 +185,7 @@ func TestWriteAndRead(t *testing.T) {
 
 	data := binary.Bytes()
 
-	os.WriteFile("reconstructed.pecoff", data, 0o655)
+	os.WriteFile(path.Join(d, "reconstructed.pecoff"), data, 0o644)
 
 	coff, err := Parse(bytes.NewReader(data))
 	if err != nil {
@@ -192,7 +194,6 @@ func TestWriteAndRead(t *testing.T) {
 
 	h := crypto.SHA256.New()
 	h.Write(coff.Bytes())
-	fmt.Printf("%x\n", h.Sum(nil))
 
 	ok, err := coff.Verify(cert)
 	if err != nil {
