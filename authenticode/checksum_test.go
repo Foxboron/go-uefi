@@ -14,7 +14,6 @@ import (
 	"testing"
 
 	"github.com/foxboron/go-uefi/asntest"
-	"github.com/foxboron/go-uefi/efi/pecoff"
 )
 
 func mustHexdump(s string) []byte {
@@ -203,5 +202,4 @@ func TestWriteAndRead(t *testing.T) {
 	if !ok {
 		t.Fatalf("should be true")
 	}
-
 }
