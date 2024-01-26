@@ -147,7 +147,7 @@ func TestSbsignSignature(t *testing.T) {
 			}
 
 			if len(checksum.Bytes()) != c.size {
-				t.Fatalf("incorrect size. expected %v, got %v", len(checksum.Bytes()), c.size)
+				t.Fatalf("incorrect size. expected %v, got %v", c.size, len(checksum.Bytes()))
 			}
 
 			h := crypto.SHA256.New()
