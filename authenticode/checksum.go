@@ -133,12 +133,8 @@ func Parse(r io.ReaderAt) (*PECOFFBinary, error) {
 		return nil, err
 	}
 
-	filecontent.AddOffsetReader(r, 0, cksumStart)
-
 	// 4. Skip over the checksum, which is a 4-byte field.
 	cksumEnd := cksumStart + 4
-
-	filecontent.AddOffsetReader(r, cksumStart, cksumEnd)
 
 	// 5. Hash everything from the end of the checksum field to immediately before
 	// the start of the Certificate Table entry, as specified in Optional Header
@@ -147,7 +143,7 @@ func Parse(r io.ReaderAt) (*PECOFFBinary, error) {
 		return nil, err
 	}
 
-	filecontent.AddOffsetReader(r, cksumEnd, dd4start)
+	filecontent.AddOffsetReader(r, 0, dd4start)
 
 	// 6. Get the Attribute Certificate Table address and size from the
 	// Certificate Table entry.
@@ -167,8 +163,6 @@ func Parse(r io.ReaderAt) (*PECOFFBinary, error) {
 	if err := readBytes(dd4end, SizeOfHeaders); err != nil {
 		return nil, err
 	}
-
-	filecontent.AddOffsetReader(r, dd4end, SizeOfHeaders)
 
 	// 8. Create a counter called SUM_OF_BYTES_HASHED, which is not part of the
 	// signature. Set this counter to the SizeOfHeaders field, as specified in Optional
@@ -222,8 +216,6 @@ func Parse(r io.ReaderAt) (*PECOFFBinary, error) {
 	// reading so far.
 	fileSize += int(sumOfBytesHashed)
 
-	filecontent.AddOffsetReader(r, SizeOfHeaders, sumOfBytesHashed)
-
 	// Make a bytes.Buffer with all the remaining bytes
 	var rest bytes.Buffer
 	if err := readSection(r, &rest, sumOfBytesHashed, 1<<63-1); err != nil {
@@ -246,7 +238,7 @@ func Parse(r io.ReaderAt) (*PECOFFBinary, error) {
 	}
 
 	// Add an offset reader to read all the remaining bytes
-	filecontent.AddOffsetReader(r, sumOfBytesHashed, int64(binaryRest))
+	filecontent.AddOffsetReader(r, dd4end, sumOfBytesHashed+int64(binaryRest))
 
 	// If FILE_SIZE is not a multiple of 8 bytes, the data added to the hash must be appended with zero
 	// padding of length (8 – (FILE_SIZE % 8)) bytes.
