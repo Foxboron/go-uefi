@@ -127,8 +127,8 @@ func TestSbsignSignature(t *testing.T) {
 			cert:      mustCertificate("testdata/db.pem"),
 			err:       ErrNoSignatures,
 			ok:        false,
-			size:      3825,
-			fchecksum: mustHexdump("c821d06f18e84ecd33d9a53954d366d76b5c595f5819a5076009106601fc8c31"),
+			size:      3832,
+			fchecksum: mustHexdump("ec693aefe32b2af94586fb43c78dbc3806658aca4dffd04019ac211cca3a6d5b"),
 		},
 		{
 			f:         mustOpen("testdata/test.pecoff.signed"),

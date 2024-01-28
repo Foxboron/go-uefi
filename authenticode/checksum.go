@@ -29,6 +29,7 @@ type PECOFFBinary struct {
 	// Reader with the hashable bytes
 	HashContent  *bytes.Buffer
 	length       int
+	padding      []byte
 	optDataDir   *bytes.Reader
 	certTable    *bytes.Buffer
 	firstSection *io.SectionReader
@@ -209,8 +210,10 @@ func Parse(r io.ReaderAt) (*PECOFFBinary, error) {
 
 	// If FILE_SIZE is not a multiple of 8 bytes, the data added to the hash must be appended with zero
 	// padding of length (8 – (FILE_SIZE % 8)) bytes.
-	paddingBytes, _ := PaddingBytes(fileSize, 8)
+	paddingBytes, n := PaddingBytes(fileSize, 8)
 	hashBuffer.Write(paddingBytes)
+
+	fileSize += n
 
 	// Read the entire filecontent into memory.
 	var fileContent bytes.Buffer
@@ -226,6 +229,7 @@ func Parse(r io.ReaderAt) (*PECOFFBinary, error) {
 
 	return &PECOFFBinary{
 		length:       fileSize,
+		padding:      paddingBytes,
 		certTable:    &certTable,
 		HashContent:  hashBuffer,
 		Datadir:      ddEntry,
@@ -317,13 +321,16 @@ func (p *PECOFFBinary) Verify(cert *x509.Certificate) (bool, error) {
 // Return the binary with any appended signatures
 func (p *PECOFFBinary) Bytes() []byte {
 	var b bytes.Buffer
-	io.Copy(&b, io.MultiReader(p.firstSection, p.optDataDir, p.lastSection))
+	io.Copy(&b, io.MultiReader(p.firstSection, p.optDataDir, p.lastSection, bytes.NewBuffer(p.padding)))
+
 	// Append the certificate table
 	b.Write(p.certTable.Bytes())
+
 	// Reset the section readers
 	p.firstSection.Seek(0, io.SeekStart)
 	p.optDataDir.Seek(0, io.SeekStart)
 	p.lastSection.Seek(0, io.SeekStart)
+
 	return b.Bytes()
 }
 
