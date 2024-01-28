@@ -12,8 +12,9 @@ future UEFI revisions.
 * Implements most Secure Boot relevant structs as defined in UEFI Spec Version 2.8 Errata A (February 14th 2020).
 * PE/COFF Checksumming.
 * Microsoft Authenticode signing.
+* A subset of PKCS7
 * Working with EFI_SIGNATURE_LIST and EFI_SIGNATURE_DATABASE.
-* Integration tests utilizing [vmtest](https://github.com/anatol/vmtest) and tianocore.
+* Integration tests utilizing [vmtest](https://github.com/hugelgupf/vmtest) and tianocore.
 * Virtual filesystem support for easier testing.
 
 
@@ -21,15 +22,17 @@ future UEFI revisions.
 
 Some example can be found under `cmd/`.
 
+# Code Examples
 
 ## Append signatures to db
 
 ```go
 package main
 import (
-	"github.com/foxboron/go-uefi/efi"
 	"github.com/foxboron/go-uefi/efi/signature"
 	"github.com/foxboron/go-uefi/efi/util"
+	"github.com/foxboron/go-uefi/efivar"
+	"github.com/foxboron/go-uefi/efivarfs"
 )
 
 var (
@@ -41,10 +44,35 @@ var (
 )
 
 func main() {
-    db, _ := efi.Getdb()
-    db.AppendSignature(signature.CERT_SHA256_GUID, &sigdata)
-    buf, _ := efi.SignEFIVariable(key, cert, "db", db.Bytes())
-    efi.WriteEFIVariable("db", buf)
+	efifs := efivarfs.NewFS().Open()
+	db, _ := efifs.Getdb()
+	db.AppendSignature(signature.CERT_SHA256_GUID, &sigdata)
+	efifs.WriteSignedUpdate(efivar.Db, db, key, cert)
+}
+```
+
+## Use a in-memory efivarfs for tests
+
+```go
+package main
+import (
+	"github.com/foxboron/go-uefi/efi"
+	"github.com/foxboron/go-uefi/efi/efitest"
+	"github.com/foxboron/go-uefi/efi/signature"
+	"github.com/foxboron/go-uefi/efivarfs"
+)
+
+func TestSecureBootOn(t *testing.T) {
+	efifs := efivarfs.NewTestFS().
+		With(efitest.SecureBootOn()).
+		Open()
+	ok, err := efifs.GetSetupMode()
+	if err != nil {
+		t.Fatalf("%v", err)
+	}
+	if !ok {
+		t.Fatalf("Secure Boot is not enabled")
+	}
 }
 ```
 
@@ -52,7 +80,7 @@ func main() {
 ```go
 package main
 import (
-	"github.com/foxboron/go-uefi/efi/pecoff"
+	"github.com/foxboron/go-uefi/authenticode"
 	"github.com/foxboron/go-uefi/efi/util"
 )
 
@@ -63,8 +91,23 @@ var (
 
 func main(){
 	peFile, _ := os.ReadFile("somefile")
-	file := authenticode.Parse(peFile)
+	file, _ := authenticode.Parse(peFile)
 	file.Sign(key, cert)
 	os.WriteFile("somefile.signed", file.Bytes(), 0644)
+}
+```
+
+## Checksum UEFI executable
+```go
+package main
+import (
+	"github.com/foxboron/go-uefi/authenticode"
+)
+
+func main(){
+	peFile, _ := os.ReadFile("somefile")
+	file, _ := authenticode.Parse(peFile)
+	checksum := file.Hash(crypto.SHA256)
+	fmt.Printf("%x\n", checksum)
 }
 ```
