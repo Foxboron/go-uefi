@@ -21,12 +21,12 @@ var (
 	SetupMode = Efivar{"SetupMode", util.StringToGUID("8be4df61-93ca-11d2-aa0d-00e098032b8c"),
 		attributes.EFI_VARIABLE_BOOTSERVICE_ACCESS |
 			attributes.EFI_VARIABLE_RUNTIME_ACCESS}
-	PK = Efivar{"db", util.StringToGUID("d719b2cb-3d3a-4596-a3bc-dad00e67656f"),
+	PK = Efivar{"PK", util.StringToGUID("8be4df61-93ca-11d2-aa0d-00e098032b8c"),
 		attributes.EFI_VARIABLE_NON_VOLATILE |
 			attributes.EFI_VARIABLE_BOOTSERVICE_ACCESS |
 			attributes.EFI_VARIABLE_RUNTIME_ACCESS |
 			attributes.EFI_VARIABLE_TIME_BASED_AUTHENTICATED_WRITE_ACCESS}
-	KEK = Efivar{"db", util.StringToGUID("d719b2cb-3d3a-4596-a3bc-dad00e67656f"),
+	KEK = Efivar{"KEK", util.StringToGUID("8be4df61-93ca-11d2-aa0d-00e098032b8c"),
 		attributes.EFI_VARIABLE_NON_VOLATILE |
 			attributes.EFI_VARIABLE_BOOTSERVICE_ACCESS |
 			attributes.EFI_VARIABLE_RUNTIME_ACCESS |
@@ -36,7 +36,7 @@ var (
 			attributes.EFI_VARIABLE_BOOTSERVICE_ACCESS |
 			attributes.EFI_VARIABLE_RUNTIME_ACCESS |
 			attributes.EFI_VARIABLE_TIME_BASED_AUTHENTICATED_WRITE_ACCESS}
-	Dbx = Efivar{"db", util.StringToGUID("d719b2cb-3d3a-4596-a3bc-dad00e67656f"),
+	Dbx = Efivar{"dbx", util.StringToGUID("d719b2cb-3d3a-4596-a3bc-dad00e67656f"),
 		attributes.EFI_VARIABLE_NON_VOLATILE |
 			attributes.EFI_VARIABLE_BOOTSERVICE_ACCESS |
 			attributes.EFI_VARIABLE_RUNTIME_ACCESS |

@@ -8,7 +8,6 @@ import (
 	"encoding/binary"
 	"fmt"
 	"io"
-	"log"
 	"sort"
 
 	"github.com/foxboron/go-uefi/efi/signature"
@@ -28,49 +27,17 @@ type PECOFFBinary struct {
 	// DataDirectory for the Certificate table
 	Datadir pe.DataDirectory
 	// Reader with the hashable bytes
-	HashContent *bytes.Buffer
-	// Complete file content that has been read
-	fileContent *readers
-	length      int
-	optDataDir  *bytes.Reader
-	certTable   *bytes.Buffer
-}
-
-// Internal reader representation of the file we are dealing with
-type readers []io.ReadSeeker
-
-func (r *readers) Add(newreader io.ReadSeeker) {
-	*r = append(*r, newreader)
-}
-
-func (r *readers) AddOffsetReader(newreader io.ReaderAt, off, n int64) {
-	sr := io.NewSectionReader(newreader, off, n-off)
-	r.Add(sr)
-}
-
-func (r readers) Multireader() io.Reader {
-	var rs []io.Reader
-	for _, rr := range r {
-		rs = append(rs, (io.Reader)(rr))
-	}
-	return io.MultiReader(rs...)
-}
-
-func (r readers) Reset() {
-	for _, rr := range r {
-		rr.Seek(0, io.SeekStart)
-	}
+	HashContent  *bytes.Buffer
+	length       int
+	optDataDir   *bytes.Reader
+	certTable    *bytes.Buffer
+	firstSection *io.SectionReader
+	lastSection  *io.SectionReader
 }
 
 // Parse a PECOFF Binary.
 // This will read the binary and collect all the bytes we are hashing.
 func Parse(r io.ReaderAt) (*PECOFFBinary, error) {
-	// This is an amazing hack.
-	// Instead of doing surgey with NewOffsetWriter or a raw byteslice,
-	// we record all the SectionReaders we have and insert our own by replacing byte slices.
-	// we then join everything with a MultiReader to get the entire file content.
-	var filecontent readers
-
 	// 1. Load the image header into memory.
 	// Done in io.ReaderAt
 
@@ -143,7 +110,7 @@ func Parse(r io.ReaderAt) (*PECOFFBinary, error) {
 		return nil, err
 	}
 
-	filecontent.AddOffsetReader(r, 0, dd4start)
+	firstSection := io.NewSectionReader(r, 0, dd4start)
 
 	// 6. Get the Attribute Certificate Table address and size from the
 	// Certificate Table entry.
@@ -154,7 +121,7 @@ func Parse(r io.ReaderAt) (*PECOFFBinary, error) {
 	readSection(r, &datadir, dd4start, dd4end)
 
 	optDataDir := bytes.NewReader(datadir.Bytes())
-	filecontent.AddOffsetReader(optDataDir, 0, 8)
+	// filecontent.Add(optDataDir)
 
 	// 7. Exclude the Certificate Table entry from the calculation and hash everything
 	// from the end of the Certificate Table entry to the end of image header,
@@ -238,7 +205,7 @@ func Parse(r io.ReaderAt) (*PECOFFBinary, error) {
 	}
 
 	// Add an offset reader to read all the remaining bytes
-	filecontent.AddOffsetReader(r, dd4end, sumOfBytesHashed+int64(binaryRest))
+	lastSection := io.NewSectionReader(r, dd4end, (sumOfBytesHashed+int64(binaryRest))-dd4end)
 
 	// If FILE_SIZE is not a multiple of 8 bytes, the data added to the hash must be appended with zero
 	// padding of length (8 – (FILE_SIZE % 8)) bytes.
@@ -256,15 +223,15 @@ func Parse(r io.ReaderAt) (*PECOFFBinary, error) {
 	if _, err := io.Copy(&certTable, sr); err != nil {
 		return nil, err
 	}
-	// filecontent.Add(&certTable)
 
 	return &PECOFFBinary{
-		fileContent: &filecontent,
-		length:      fileSize,
-		optDataDir:  optDataDir,
-		certTable:   &certTable,
-		HashContent: hashBuffer,
-		Datadir:     ddEntry,
+		length:       fileSize,
+		certTable:    &certTable,
+		HashContent:  hashBuffer,
+		Datadir:      ddEntry,
+		firstSection: firstSection,
+		optDataDir:   optDataDir,
+		lastSection:  lastSection,
 	}, nil
 }
 
@@ -350,11 +317,13 @@ func (p *PECOFFBinary) Verify(cert *x509.Certificate) (bool, error) {
 // Return the binary with any appended signatures
 func (p *PECOFFBinary) Bytes() []byte {
 	var b bytes.Buffer
-	if _, err := io.Copy(&b, p.fileContent.Multireader()); err != nil {
-		log.Fatalf("failed reading from Multireader: %v", err)
-	}
+	io.Copy(&b, io.MultiReader(p.firstSection, p.optDataDir, p.lastSection))
+	// Append the certificate table
 	b.Write(p.certTable.Bytes())
-	p.fileContent.Reset()
+	// Reset the section readers
+	p.firstSection.Seek(0, io.SeekStart)
+	p.optDataDir.Seek(0, io.SeekStart)
+	p.lastSection.Seek(0, io.SeekStart)
 	return b.Bytes()
 }
 

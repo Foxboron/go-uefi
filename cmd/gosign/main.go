@@ -3,11 +3,10 @@ package main
 import (
 	"flag"
 	"fmt"
-	"io/ioutil"
 	"log"
 	"os"
 
-	"github.com/foxboron/go-uefi/efi/pecoff"
+	"github.com/foxboron/go-uefi/authenticode"
 	"github.com/foxboron/go-uefi/efi/util"
 )
 
@@ -24,12 +23,11 @@ func main() {
 		os.Exit(1)
 	}
 
-	peFile, err := ioutil.ReadFile(args[0])
+	peFile, err := os.Open(args[0])
 	if err != nil {
 		log.Fatal(err)
 	}
 
-	ctx := pecoff.PECOFFChecksum(peFile)
 	Cert, err := util.ReadCertFromFile(*cert)
 	if err != nil {
 		log.Fatal(err)
@@ -39,16 +37,13 @@ func main() {
 		log.Fatal(err)
 	}
 
-	sig, err := pecoff.CreateSignature(ctx, Cert, Key)
+	file, err := authenticode.Parse(peFile)
 	if err != nil {
 		log.Fatal(err)
 	}
+	file.Sign(Key, Cert)
 
-	b, err := pecoff.AppendToBinary(ctx, sig)
-	if err != nil {
-		log.Fatal(err)
-	}
-	if err = ioutil.WriteFile(args[1], b, 0644); err != nil {
+	if err = os.WriteFile(args[1], file.Bytes(), 0644); err != nil {
 		log.Fatal(err)
 	}
 }

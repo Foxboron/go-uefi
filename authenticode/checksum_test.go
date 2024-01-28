@@ -10,11 +10,10 @@ import (
 	"fmt"
 	"log"
 	"os"
-	"path"
 	"testing"
 
 	"github.com/foxboron/go-uefi/asntest"
-	"github.com/foxboron/go-uefi/efi/pecoff"
+	"github.com/foxboron/go-uefi/efi/util"
 )
 
 func mustHexdump(s string) []byte {
@@ -41,6 +40,15 @@ func mustCertificate(s string) *x509.Certificate {
 		log.Fatal(err)
 	}
 	return cert
+}
+
+func mustSigner(s string) crypto.Signer {
+	b := mustOpen(s)
+	k, err := util.ReadKey(b)
+	if err != nil {
+		log.Fatal(err)
+	}
+	return k
 }
 
 func TestSignVerify(t *testing.T) {
@@ -133,8 +141,6 @@ func TestSbsignSignature(t *testing.T) {
 		},
 	}
 
-	// cert, key := asntest.InitCert()
-
 	for n, c := range cases {
 		t.Run(fmt.Sprintf("case %d", n), func(t *testing.T) {
 			checksum, err := Parse(bytes.NewReader(c.f))
@@ -158,11 +164,6 @@ func TestSbsignSignature(t *testing.T) {
 				t.Fatalf("incorrect checksum.")
 			}
 
-			// _, err = checksum.Sign(key, cert)
-			// if err != nil {
-			// 	t.Fatalf("failed signing binary: %v", err)
-			// }
-
 			ok, err := checksum.Verify(c.cert)
 			if !errors.As(err, &c.err) && (err != nil && c.err != nil) {
 				t.Fatalf("failed verify function. expected %v, got %v", c.err, err)
@@ -175,8 +176,73 @@ func TestSbsignSignature(t *testing.T) {
 	}
 }
 
+func TestSignVerifyWrite(t *testing.T) {
+	cases := []struct {
+		f         []byte
+		checksum  []byte
+		cert      *x509.Certificate
+		key       crypto.Signer
+		err       any
+		ok        bool
+		size      int
+		fchecksum []byte
+	}{
+		{
+			f:         mustOpen("testdata/test.pecoff"),
+			checksum:  mustHexdump("e7d74d2bc1287c17bf056e259ad7d2ca557e848b252509ae9956df0b14f69702"),
+			cert:      mustCertificate("testdata/db.pem"),
+			key:       mustSigner("testdata/db.key"),
+			err:       ErrNoSignatures,
+			ok:        true,
+			size:      3825,
+			fchecksum: mustHexdump("c821d06f18e84ecd33d9a53954d366d76b5c595f5819a5076009106601fc8c31"),
+		},
+	}
+
+	for n, c := range cases {
+		t.Run(fmt.Sprintf("case %d", n), func(t *testing.T) {
+			checksum, err := Parse(bytes.NewReader(c.f))
+			if err != nil {
+				t.Fatalf("failed checksumming file: %v", err)
+			}
+
+			_, err = checksum.Sign(c.key, c.cert)
+			if err != nil {
+				t.Fatalf("failed signing binary: %v", err)
+			}
+
+			ok, err := checksum.Verify(c.cert)
+			if !errors.As(err, &c.err) && (err != nil && c.err != nil) {
+				t.Fatalf("failed verify function. expected %v, got %v", c.err, err)
+			}
+
+			if ok != c.ok {
+				t.Fatalf("failed verify binary. expected %v, got %v", c.ok, ok)
+			}
+
+			// Debugging
+			// os.WriteFile(path.Join(dir, "test.signed"), checksum.Bytes(), 0644)
+			// bb := mustOpen(path.Join(dir, "test.signed"))
+
+			binary, err := Parse(bytes.NewReader(checksum.Bytes()))
+			if err != nil {
+				t.Fatalf("failed parsing binary the second time: %v", err)
+			}
+
+			ok, err = binary.Verify(c.cert)
+
+			if !errors.As(err, &c.err) && (err != nil && c.err != nil) {
+				t.Fatalf("failed second verify function. expected %v, got %v", c.err, err)
+			}
+
+			if ok != c.ok {
+				t.Fatalf("failed second verify binary. expected %v, got %v", c.ok, ok)
+			}
+		})
+	}
+}
+
 func TestWriteAndRead(t *testing.T) {
-	d := t.TempDir()
 	f := mustOpen("testdata/test.pecoff.signed")
 
 	cert := mustCertificate("testdata/db.pem")
@@ -185,7 +251,7 @@ func TestWriteAndRead(t *testing.T) {
 
 	data := binary.Bytes()
 
-	os.WriteFile(path.Join(d, "reconstructed.pecoff"), data, 0o644)
+	// os.WriteFile(path.Join(d, "reconstructed.pecoff"), data, 0o644)
 
 	coff, err := Parse(bytes.NewReader(data))
 	if err != nil {
@@ -203,5 +269,4 @@ func TestWriteAndRead(t *testing.T) {
 	if !ok {
 		t.Fatalf("should be true")
 	}
-
 }
