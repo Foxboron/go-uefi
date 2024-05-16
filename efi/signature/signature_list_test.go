@@ -225,3 +225,46 @@ func TestSiglistSigDataExists(t *testing.T) {
 		t.Fatal("exists: sigdata is not in the list")
 	}
 }
+
+func TestSiglists(t *testing.T) {
+	for _, c := range []struct {
+		name string
+		f    string
+	}{
+		{
+			name: "db",
+			f:    "testdata/db",
+		},
+		{
+			name: "dbdefault",
+			f:    "testdata/dbdefault",
+		},
+		{
+			name: "kek",
+			f:    "testdata/kek",
+		},
+		{
+			name: "kekdefault",
+			f:    "testdata/kekdefault",
+		},
+		{
+			name: "pk",
+			f:    "testdata/pk",
+		},
+		{
+			name: "pkdefault",
+			f:    "testdata/pkdefault",
+		},
+	} {
+		t.Run(c.name, func(t *testing.T) {
+			_, data, err := attributes.ReadEfivarsFile(c.f)
+			if err != nil {
+				t.Fatalf("%v", err)
+			}
+			_, err = ReadSignatureDatabase(data)
+			if err != nil {
+				t.Fatalf("%v", err)
+			}
+		})
+	}
+}

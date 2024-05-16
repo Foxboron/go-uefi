@@ -32,6 +32,8 @@ var (
 	CERT_SHA512_GUID = util.EFIGUID{0x93e0fae, 0xa6c4, 0x4f50, [8]uint8{0x9f, 0x1b, 0xd4, 0x1e, 0x2b, 0x89, 0xc1, 0x9a}}
 
 	CERT_X509_SHA256_GUID = util.EFIGUID{0x3bd2a492, 0x96c0, 0x4079, [8]uint8{0xb4, 0x20, 0xfc, 0xf9, 0x8e, 0xf1, 0x03, 0xed}}
+
+	CERT_EXTERNAL_MANAGEMENT_GUID = util.EFIGUID{0x452e8ced, 0xdfff, 0x4b8c, [8]uint8{0xae, 0x01, 0x51, 0x18, 0x86, 0x2e, 0x68, 0x2c}}
 )
 
 type CertType string
@@ -41,16 +43,17 @@ var ErrNoSuchSignatureScheme = errors.New("no such signature scheme")
 // Quick access list
 // Maybe a map[string]EFIGUID?
 var ValidEFISignatureSchemes = map[util.EFIGUID]CertType{
-	CERT_SHA256_GUID:         "SHA256",
-	CERT_RSA2048_GUID:        "RSA2048",
-	CERT_RSA2048_SHA256_GUID: "RSA2048 SHA256",
-	CERT_SHA1_GUID:           "SHA1",
-	CERT_RSA2048_SHA1_GUID:   "RSA2048 SHA1",
-	CERT_X509_GUID:           "X509",
-	CERT_SHA224_GUID:         "SHA224",
-	CERT_SHA384_GUID:         "SHA238",
-	CERT_SHA512_GUID:         "SHA512",
-	CERT_X509_SHA256_GUID:    "X509 SHA256",
+	CERT_SHA256_GUID:              "SHA256",
+	CERT_RSA2048_GUID:             "RSA2048",
+	CERT_RSA2048_SHA256_GUID:      "RSA2048 SHA256",
+	CERT_SHA1_GUID:                "SHA1",
+	CERT_RSA2048_SHA1_GUID:        "RSA2048 SHA1",
+	CERT_X509_GUID:                "X509",
+	CERT_SHA224_GUID:              "SHA224",
+	CERT_SHA384_GUID:              "SHA238",
+	CERT_SHA512_GUID:              "SHA512",
+	CERT_X509_SHA256_GUID:         "X509 SHA256",
+	CERT_EXTERNAL_MANAGEMENT_GUID: "EXTERNAL MANAGEMENT",
 }
 
 const (
@@ -297,6 +300,17 @@ func ReadSignatureList(f io.Reader) (*SignatureList, error) {
 			return nil, fmt.Errorf("unexpected signature size for SHA256. Should be 16+32")
 		}
 		sigData, err = parseList(sigData, s.Size)
+	case "EXTERNAL MANAGEMENT":
+		if s.HeaderSize != 0 {
+			return nil, fmt.Errorf("unexpected HeaderSize for EXTERNAL MANAGEMENT. Should be 0")
+		}
+
+		if s.Size != 17 {
+			return nil, fmt.Errorf("unexpected signature size for EXTERNAL MANAGEMENT. Should be 16+1")
+		}
+		// Certs under external management should be ignored.
+		// we discard the data we read.
+		_, err = parseList(sigData, s.Size)
 	default:
 		// if s.Size != 0 {
 		// 	buf := make([]byte, s.Size)
