@@ -4,6 +4,7 @@ import (
 	"bytes"
 	"encoding/binary"
 	"encoding/pem"
+	"fmt"
 	"io"
 	"log"
 	"reflect"
@@ -285,15 +286,15 @@ func ReadSignatureList(f io.Reader) (*SignatureList, error) {
 	switch sig {
 	case "X509":
 		if s.HeaderSize != 0 {
-			log.Fatalf("Unexpected HeaderSize for x509 cert. Should be 0!")
+			return nil, fmt.Errorf("unexpected HeaderSize for x509 cert. Should be 0")
 		}
 		sigData, err = parseList(sigData, s.Size)
 	case "SHA256":
 		if s.HeaderSize != 0 {
-			log.Fatalf("Unexpected HeaderSize for SHA256. Should be 0!")
+			return nil, fmt.Errorf("unexpected HeaderSize for SHA256. Should be 0")
 		}
 		if s.Size != 48 {
-			log.Fatalf("Unexpected signature size for SHA256. Should be 16+32!")
+			return nil, fmt.Errorf("unexpected signature size for SHA256. Should be 16+32")
 		}
 		sigData, err = parseList(sigData, s.Size)
 	default:
@@ -303,7 +304,7 @@ func ReadSignatureList(f io.Reader) (*SignatureList, error) {
 		// 		return nil, errors.Wrap(err, "could not read default list")
 		// 	}
 		// }
-		log.Fatalf("Not implemented signature list certificate: %s", sig)
+		return nil, fmt.Errorf("not implemented signature list certificate: %s", sig)
 	}
 	if err != nil {
 		return &SignatureList{}, err
