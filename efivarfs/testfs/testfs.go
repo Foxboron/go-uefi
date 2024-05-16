@@ -1,4 +1,4 @@
-package efivarfs
+package testfs
 
 import (
 	"bytes"
@@ -8,6 +8,8 @@ import (
 
 	"github.com/foxboron/go-uefi/efi/signature"
 	"github.com/foxboron/go-uefi/efivar"
+	"github.com/foxboron/go-uefi/efivarfs"
+	"github.com/foxboron/go-uefi/efivarfs/fswrapper"
 	"github.com/spf13/afero"
 )
 
@@ -16,13 +18,13 @@ import (
 
 // This is the a wrapper around MapFS to easily inject data and convert it to afero.fs
 type TestFS struct {
-	*EFIFS
+	*efivarfs.EFIFS
 	mapfs fstest.MapFS
 }
 
 func NewTestFS() *TestFS {
 	return &TestFS{
-		EFIFS: &EFIFS{NewMemoryWrapper()},
+		EFIFS: &efivarfs.EFIFS{fswrapper.NewMemoryWrapper()},
 		mapfs: fstest.MapFS{},
 	}
 }
@@ -66,11 +68,11 @@ func (f *TestFS) With(files ...fstest.MapFS) *TestFS {
 }
 
 // Open opens TestFS as Efivarfs
-func (f *TestFS) Open() *Efivarfs {
+func (f *TestFS) Open() *efivarfs.Efivarfs {
 	overlayfs := fromMapFS(f.mapfs)
 	// I don't think this was a good idea
-	f.fs = overlayfs
-	return &Efivarfs{f}
+	f.SetFS(overlayfs)
+	return &efivarfs.Efivarfs{f}
 }
 
 // WriteVar is a shim around EFIFS.WriteVar and ensures variables written to the

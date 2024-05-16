@@ -1,4 +1,4 @@
-package efivarfs
+package testfs_test
 
 import (
 	"reflect"
@@ -9,6 +9,8 @@ import (
 	"github.com/foxboron/go-uefi/efi/signature"
 	"github.com/foxboron/go-uefi/efi/util"
 	"github.com/foxboron/go-uefi/efivar"
+
+	. "github.com/foxboron/go-uefi/efivarfs/testfs"
 )
 
 var (
