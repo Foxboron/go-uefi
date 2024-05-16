@@ -3,17 +3,14 @@ package main
 import (
 	"bytes"
 	"crypto/x509"
-	"crypto/x509/pkix"
-	"encoding/asn1"
 	"fmt"
-	"io/ioutil"
 	"log"
 	"os"
 
+	"github.com/foxboron/go-uefi/authenticode"
 	"github.com/foxboron/go-uefi/efi/attributes"
-	"github.com/foxboron/go-uefi/efi/pecoff"
-	"github.com/foxboron/go-uefi/efi/pkcs7"
 	"github.com/foxboron/go-uefi/efi/signature"
+	"github.com/foxboron/go-uefi/pkcs7"
 )
 
 func FormatSignatureList(siglist []*signature.SignatureList) {
@@ -54,7 +51,7 @@ func ParseKeyDb(filename string) {
 }
 
 func ParseSignatureList(filename string) {
-	b, _ := ioutil.ReadFile(filename)
+	b, _ := os.ReadFile(filename)
 	f := bytes.NewReader(b)
 	siglist, err := signature.ReadSignatureDatabase(f)
 	if err != nil {
@@ -93,7 +90,7 @@ func FormatEFIVariableAuth2(sig *signature.EFIVariableAuthentication2) {
 }
 
 func ParseEFIAuthVariable(filename string) {
-	b, _ := ioutil.ReadFile(filename)
+	b, _ := os.ReadFile(filename)
 	reader := bytes.NewReader(b)
 	// Fetch the signature
 	sig, err := signature.ReadEFIVariableAuthencation2(reader)
@@ -109,34 +106,37 @@ func ParseEFIAuthVariable(filename string) {
 }
 
 func ParseEFIImage(filename string) {
-	b, err := ioutil.ReadFile(filename)
+	b, err := os.ReadFile(filename)
 	if err != nil {
 		log.Fatal(err)
 		os.Exit(1)
 	}
-	datadir, err := pecoff.GetSignatureDataDirectory(b)
+
+	binary, err := authenticode.Parse(bytes.NewReader(b))
 	if err != nil {
 		log.Fatal(err)
-		os.Exit(1)
 	}
+
 	fmt.Println("Data Directory Header:")
-	fmt.Printf("	Virtual Address: 0x%x\n", datadir.VirtualAddress)
-	fmt.Printf("	Size in bytes: %d\n", datadir.Size)
-	if datadir.Size == 0 {
+	fmt.Printf("	Virtual Address: 0x%x\n", binary.Datadir.VirtualAddress)
+	fmt.Printf("	Size in bytes: %d\n", binary.Datadir.Size)
+	if binary.Datadir.Size == 0 {
 		fmt.Println("No signatures")
 	}
-	signatures, err := pecoff.GetSignatures(b)
+
+	signatures, err := binary.Signatures()
 	if err != nil {
 		log.Fatal(err)
 	}
 	for _, sig := range signatures {
 		fmt.Printf("Certificate Type: %s\n", signature.WINCertTypeString[sig.CertType])
-		c := pkcs7.ParseSignature(sig.Certificate)
-		for _, si := range c.Content.SignerInfos {
-			var issuer pkix.RDNSequence
-			asn1.Unmarshal(si.IssuerAndSerialNumber.IssuerName.FullBytes, &issuer)
-			fmt.Printf("	Issuer Name: %s\n", issuer.String())
-			fmt.Printf("	Serial Number: %s\n", si.IssuerAndSerialNumber.SerialNumber)
+		c, err := pkcs7.ParsePKCS7(sig.Certificate)
+		if err != nil {
+			log.Fatal(err)
+		}
+		for range c.SignerInfo {
+			// TODO: Implement issuer and serial number parsing
+			continue
 		}
 	}
 }

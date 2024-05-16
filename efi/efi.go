@@ -3,9 +3,6 @@ package efi
 // Top level API for goefi
 
 import (
-	"bytes"
-	"crypto"
-	"crypto/x509"
 	"encoding/binary"
 	"fmt"
 	"io"
@@ -13,7 +10,6 @@ import (
 
 	"github.com/foxboron/go-uefi/efi/attributes"
 	"github.com/foxboron/go-uefi/efi/device"
-	"github.com/foxboron/go-uefi/efi/pecoff"
 	"github.com/foxboron/go-uefi/efi/signature"
 	"github.com/foxboron/go-uefi/efi/util"
 	"github.com/pkg/errors"
@@ -156,53 +152,6 @@ func Getdbx() (*signature.SignatureDatabase, error) {
 		return nil, errors.Wrapf(err, "can't parse forbidden database key")
 	}
 	return &siglist, nil
-}
-
-func SignEFIExecutable(key crypto.Signer, cert *x509.Certificate, file []byte) ([]byte, error) {
-	ctx := pecoff.PECOFFChecksum(file)
-	sig, err := pecoff.CreateSignature(ctx, cert, key)
-	if err != nil {
-		return nil, err
-	}
-	b, err := pecoff.AppendToBinary(ctx, sig)
-	if err != nil {
-		return nil, err
-	}
-	return b, nil
-}
-
-func SignEFIVariableWithAttr(key crypto.Signer, cert *x509.Certificate, varname string, siglist []byte, attr attributes.Attributes) ([]byte, error) {
-	attrs := ValidAttributes[varname]
-	attrs |= attr
-
-	var guid util.EFIGUID
-
-	if ok := attributes.ImageSecurityDatabases[varname]; ok {
-		guid = attributes.EFI_IMAGE_SECURITY_DATABASE_GUID
-	} else {
-		guid = attributes.EFI_GLOBAL_VARIABLE
-	}
-
-	ctx := &signature.EFIVariableSigningContext{
-		Cert:    cert,
-		Key:     key,
-		Varname: []byte(varname),
-		Guid:    guid,
-		Attr:    attrs,
-		Data:    siglist,
-	}
-	signedVariable, err := signature.NewSignedEFIVariable(ctx)
-	if err != nil {
-		return nil, err
-	}
-	buf := new(bytes.Buffer)
-	signature.WriteEFIVariableAuthencation2(buf, *signedVariable)
-	buf.Write(siglist)
-	return buf.Bytes(), err
-}
-
-func SignEFIVariable(key crypto.Signer, cert *x509.Certificate, varname string, siglist []byte) ([]byte, error) {
-	return SignEFIVariableWithAttr(key, cert, varname, siglist, 0)
 }
 
 func WriteEFIVariable(variable string, buf []byte) error {

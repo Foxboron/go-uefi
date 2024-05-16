@@ -1,14 +1,15 @@
 package main
 
 import (
+	"bytes"
 	"flag"
 	"fmt"
-	"io/ioutil"
 	"log"
 	"os"
 
-	"github.com/foxboron/go-uefi/efi"
+	"github.com/foxboron/go-uefi/efi/signature"
 	"github.com/foxboron/go-uefi/efi/util"
+	"github.com/foxboron/go-uefi/efivar"
 )
 
 func main() {
@@ -24,7 +25,7 @@ func main() {
 		fmt.Println("Missing input and output file")
 		os.Exit(1)
 	}
-	b, err := ioutil.ReadFile(args[0])
+	b, err := os.ReadFile(args[0])
 	if err != nil {
 		log.Fatal(err)
 	}
@@ -36,13 +37,30 @@ func main() {
 	if err != nil {
 		log.Fatal(err)
 	}
-	buf, err := efi.SignEFIVariable(keyFile, certFile, *variable, b)
+
+	var wvar efivar.Efivar
+	switch *variable {
+	case "db":
+		wvar = efivar.Db
+	case "KEK":
+		wvar = efivar.KEK
+	case "PK":
+		wvar = efivar.PK
+	}
+
+	siglist, err := signature.ReadSignatureDatabase(bytes.NewReader(b))
 	if err != nil {
 		log.Fatal(err)
 	}
 
-	err = ioutil.WriteFile(args[1], buf, 0644)
+	_, sl, err := signature.SignEFIVariable(wvar, &siglist, keyFile, certFile)
 	if err != nil {
 		log.Fatal(err)
 	}
+
+	err = os.WriteFile(args[1], sl.Bytes(), 0644)
+	if err != nil {
+		log.Fatal(err)
+	}
+
 }
