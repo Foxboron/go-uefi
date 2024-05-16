@@ -7,6 +7,7 @@ import (
 	"github.com/foxboron/go-uefi/efi/attr"
 	"github.com/foxboron/go-uefi/efi/attributes"
 	"github.com/foxboron/go-uefi/efivar"
+	"github.com/foxboron/go-uefi/efivarfs/fswrapper"
 )
 
 // This package deals with the interface actually writing the variables properly
@@ -26,7 +27,7 @@ type EFIVars interface {
 
 // EFIFS is a struct that combines reading variables from the file system while also ensuring we are
 type EFIFS struct {
-	*FSWrapper
+	*fswrapper.FSWrapper
 }
 
 var _ EFIVars = &EFIFS{}
@@ -34,7 +35,7 @@ var _ EFIVars = &EFIFS{}
 // NewFS creates a new instance of *EFIFS
 func NewFS() *EFIFS {
 	return &EFIFS{
-		NewFSWrapper(),
+		fswrapper.NewFSWrapper(),
 	}
 }
 

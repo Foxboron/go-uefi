@@ -29,3 +29,9 @@ func (e efibytes) Marshal(b *bytes.Buffer) {
 		return
 	}
 }
+
+func (e efibytes) Bytes() []byte {
+	var b bytes.Buffer
+	e.Marshal(&b)
+	return b.Bytes()
+}

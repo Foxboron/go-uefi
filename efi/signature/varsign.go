@@ -177,12 +177,20 @@ func (e *EFIVariableAuthentication2) Verify(cert *x509.Certificate) (bool, error
 }
 
 // We should maybe not duplicate this
+// TODO: Remove this
+// See efivarfs/types.go
 type efibytes bytes.Buffer
 
 func (e efibytes) Marshal(b *bytes.Buffer) {
 	if _, err := io.Copy(b, (*bytes.Buffer)(&e)); err != nil {
 		return
 	}
+}
+
+func (e efibytes) Bytes() []byte {
+	var b bytes.Buffer
+	e.Marshal(&b)
+	return b.Bytes()
 }
 
 func SignEFIVariable(v efivar.Efivar, m efivar.Marshallable, key crypto.Signer, cert *x509.Certificate) (*EFIVariableAuthentication2, efivar.Marshallable, error) {

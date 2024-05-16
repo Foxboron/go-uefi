@@ -1,4 +1,4 @@
-package efivarfs
+package fswrapper
 
 import (
 	"bytes"
@@ -33,6 +33,7 @@ type efifswrappers interface {
 	ReadFile(name string) ([]byte, error)
 	OpenFile(name string, flag int, perm os.FileMode) (io.ReadWriteCloser, error)
 	Open(name string) (fs.File, error)
+	SetFS(fs afero.Fs)
 	// MkdirAll(path string, perm os.FileMode) error
 }
 
@@ -40,6 +41,10 @@ type FSWrapper struct {
 	unsetimmutable bool
 	immutable      bool
 	fs             afero.Fs
+}
+
+func (e *FSWrapper) SetFS(fs afero.Fs) {
+	e.fs = fs
 }
 
 func (e *FSWrapper) CheckImmutable() {

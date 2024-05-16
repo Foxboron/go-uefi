@@ -46,6 +46,7 @@ var (
 // Marshallable is an interface to marshal efi variables
 type Marshallable interface {
 	Marshal(buf *bytes.Buffer)
+	Bytes() []byte
 }
 
 // Unmarshallable is an interface to unmarshal efi variables
