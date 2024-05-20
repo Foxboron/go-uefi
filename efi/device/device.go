@@ -1,7 +1,9 @@
 package device
 
 import (
+	"bytes"
 	"encoding/binary"
+	"fmt"
 	"io"
 	"log"
 
@@ -9,14 +11,28 @@ import (
 	"github.com/foxboron/go-uefi/efi/util"
 )
 
-//  Section 3.1.3 Load Options
+//	Section 3.1.3 Load Options
+//
 // Page 71
 type EFILoadOption struct {
 	Attributes         attributes.Attributes
 	FilePathListLength uint16
-	Description        []byte
+	Description        string
 	FilePath           []EFIDevicePaths
 	OptionalData       []byte // TODO: Implement
+}
+
+func (e *EFILoadOption) Unmarshal(b *bytes.Buffer) error {
+	elo, err := ParseEFILoadOption(b)
+	if err != nil {
+		return err
+	}
+	elo.FilePath, err = ParseDevicePath(b)
+	if err != nil {
+		return fmt.Errorf("could parse device path: %w", err)
+	}
+	*e = *elo
+	return nil
 }
 
 // Section 10.3 Device Path Nodes
