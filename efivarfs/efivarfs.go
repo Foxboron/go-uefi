@@ -1,9 +1,13 @@
 package efivarfs
 
 import (
+	"bytes"
 	"crypto"
 	"crypto/x509"
+	"encoding/binary"
+	"fmt"
 
+	"github.com/foxboron/go-uefi/efi/device"
 	"github.com/foxboron/go-uefi/efi/signature"
 	"github.com/foxboron/go-uefi/efivar"
 )
@@ -79,4 +83,34 @@ func (e *Efivarfs) WriteSignedUpdate(v efivar.Efivar, m efivar.Marshallable, key
 	}
 
 	return e.WriteVar(v, marshal)
+}
+
+func (e *Efivarfs) GetBootEntry(option string) (*device.EFILoadOption, error) {
+	var rsb device.EFILoadOption
+	entry := efivar.BootEntry
+	entry.Name = option
+	if err := e.GetVar(entry, &rsb); err != nil {
+		return nil, err
+	}
+	return &rsb, nil
+}
+
+type bootorder []string
+
+func (bo *bootorder) Unmarshal(b *bytes.Buffer) error {
+	for i := 0; b.Len() != 0; i += 2 {
+		sec := make([]byte, 2)
+		b.Read(sec)
+		val := binary.BigEndian.Uint16([]byte{sec[1], sec[0]})
+		*bo = append(*bo, fmt.Sprintf("Boot%04x", val))
+	}
+	return nil
+}
+
+func (e *Efivarfs) GetBootOrder() []string {
+	var rsb bootorder
+	if err := e.GetVar(efivar.BootOrder, &rsb); err != nil {
+		return nil
+	}
+	return rsb
 }
