@@ -60,7 +60,7 @@ func (e EFIDevicePath) Format() string {
 	return "No format"
 }
 
-func ParseDevicePath(f io.Reader) []EFIDevicePaths {
+func ParseDevicePath(f io.Reader) ([]EFIDevicePaths, error) {
 	var ret []EFIDevicePaths
 	for {
 		var efidevice EFIDevicePath
@@ -75,7 +75,10 @@ func ParseDevicePath(f io.Reader) []EFIDevicePaths {
 			d := ParseACPIDevicePath(f, &efidevice)
 			ret = append(ret, d)
 		case MediaDevicePath:
-			d := ParseMediaDevicePath(f, &efidevice)
+			d, err := ParseMediaDevicePath(f, &efidevice)
+			if err != nil {
+				return nil, err
+			}
 			ret = append(ret, d)
 		case MessagingDevicePath:
 			d := ParseMessagingDevicePath(f, &efidevice)
@@ -89,16 +92,22 @@ func ParseDevicePath(f io.Reader) []EFIDevicePaths {
 		}
 	}
 end:
-	return ret
+	return ret, nil
 }
 
-func ParseEFILoadOption(f io.Reader) *EFILoadOption {
+func ParseEFILoadOption(f *bytes.Buffer) (*EFILoadOption, error) {
 	var bootentry EFILoadOption
 	for _, b := range []interface{}{&bootentry.Attributes, &bootentry.FilePathListLength} {
 		if err := binary.Read(f, binary.LittleEndian, b); err != nil {
-			log.Fatalf("Can't parse EFI Load Option: %s", err)
+			return nil, fmt.Errorf("can't parse EFI Load Option: %w", err)
 		}
 	}
-	bootentry.Description = util.ReadNullString(f)
-	return &bootentry
+
+	b := util.ReadNullString(f)
+	s, err := util.ParseUtf16Var(bytes.NewBuffer(b))
+	if err != nil {
+		return nil, err
+	}
+	bootentry.Description = s
+	return &bootentry, nil
 }

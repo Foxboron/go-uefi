@@ -49,11 +49,17 @@ func GetBootOrder() []string {
 	return ret
 }
 
-func GetBootEntry(entry string) *device.EFILoadOption {
+func GetBootEntry(entry string) (*device.EFILoadOption, error) {
 	_, f, _ := attributes.ReadEfivars(entry)
-	loadOption := device.ParseEFILoadOption(f)
-	loadOption.FilePath = device.ParseDevicePath(f)
-	return loadOption
+	loadOption, err := device.ParseEFILoadOption(f)
+	if err != nil {
+		return nil, err
+	}
+	loadOption.FilePath, err = device.ParseDevicePath(f)
+	if err != nil {
+		return nil, err
+	}
+	return loadOption, nil
 }
 
 // GetSetupMode returns if setup mode has been enabled on the machine.

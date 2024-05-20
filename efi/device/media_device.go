@@ -1,6 +1,7 @@
 package device
 
 import (
+	"bytes"
 	"encoding/binary"
 	"fmt"
 	"io"
@@ -49,7 +50,7 @@ func (h HardDriveMediaDevicePath) Format() string {
 
 type FileTypeMediaDevicePath struct {
 	EFIDevicePath
-	PathName []byte
+	PathName string
 }
 
 func (f FileTypeMediaDevicePath) Format() string {
@@ -65,7 +66,8 @@ func (f FirmwareFielMediaDevicePath) Format() string {
 	return "No format"
 }
 
-func ParseMediaDevicePath(f io.Reader, efi *EFIDevicePath) EFIDevicePaths {
+func ParseMediaDevicePath(f io.Reader, efi *EFIDevicePath) (EFIDevicePaths, error) {
+	var err error
 	switch efi.SubType {
 	case HardDriveDevicePath:
 		m := HardDriveMediaDevicePath{EFIDevicePath: *efi}
@@ -78,22 +80,26 @@ func ParseMediaDevicePath(f io.Reader, efi *EFIDevicePath) EFIDevicePaths {
 			&m.SignatureType,
 		} {
 			if err := binary.Read(f, binary.LittleEndian, b); err != nil {
-				log.Fatalf("Couldn't parse Harddrive Device Path: %s", err)
+				return nil, fmt.Errorf("Couldn't parse Harddrive Device Path: %w", err)
 			}
 		}
-		return m
+		return m, nil
 	case FilePathDevicePath:
 		file := FileTypeMediaDevicePath{EFIDevicePath: *efi}
-		file.PathName = util.ReadNullString(f)
-		return file
+		b := util.ReadNullString(f)
+		file.PathName, err = util.ParseUtf16Var(bytes.NewBuffer(b))
+		if err != nil {
+			return nil, err
+		}
+		return file, nil
 	case PIWGFirmwareDevicePath:
 		file := FirmwareFielMediaDevicePath{EFIDevicePath: *efi}
 		if err := binary.Read(f, binary.LittleEndian, &file.FirmwareFileName); err != nil {
-			log.Fatalf("Couldn't parse PIWG Firmware Device Path: %s", err)
+			return nil, fmt.Errorf("Couldn't parse PIWG Firmware Device Path: %w", err)
 		}
-		return file
+		return file, nil
 	default:
 		log.Printf("Not implemented MediaDevicePath type: %x", efi.SubType)
 	}
-	return nil
+	return nil, nil
 }
