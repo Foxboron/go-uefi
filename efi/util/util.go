@@ -26,6 +26,15 @@ func ReadNullString(f io.Reader) []byte {
 	return ret
 }
 
+func MarshalUtf16Var(s string) []byte {
+	var b bytes.Buffer
+	utf16 := unicode.UTF16(unicode.LittleEndian, unicode.IgnoreBOM)
+	utf16Writer := transform.NewWriter(&b, utf16.NewEncoder())
+	utf16Writer.Write([]byte(s))
+	utf16Writer.Write([]byte("\x00"))
+	return b.Bytes()
+}
+
 // Parse an efivar as a UTF-16 string.
 func ParseUtf16Var(data *bytes.Buffer) (string, error) {
 	utf16 := unicode.UTF16(unicode.LittleEndian, unicode.IgnoreBOM)
@@ -37,7 +46,7 @@ func ParseUtf16Var(data *bytes.Buffer) (string, error) {
 	}
 
 	if b[len(b)-1] != 0 {
-		return "", errors.New("Value is not a null-terminated string.")
+		return "", errors.New("value is not a null-terminated string")
 	}
 
 	return string(bytes.Trim(b, "\x00")), nil
