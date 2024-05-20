@@ -1,4 +1,4 @@
-package testfs_test
+package efivarfs_test
 
 import (
 	"reflect"
