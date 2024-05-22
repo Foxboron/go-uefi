@@ -124,3 +124,21 @@ func TestGetBootEntry(t *testing.T) {
 		t.Fatalf("expected filepath got '%s' instead", entry.FilePath[1].Format())
 	}
 }
+
+func TestGetLoaderEntrySelected(t *testing.T) {
+	efivarfs := NewTestFS().
+		With(
+			fstest.MapFS{
+				"/sys/firmware/efi/efivars/LoaderEntrySelected-4a67b082-0a4c-41cf-b6c7-440b29bb8c4f": {Data: []byte{0x06, 0x00, 0x00, 0x00, 0x61, 0x00, 0x72, 0x00, 0x63, 0x00, 0x68, 0x00, 0x2d, 0x00, 0x6c, 0x00, 0x69, 0x00, 0x6e, 0x00, 0x75, 0x00, 0x78, 0x00, 0x2e, 0x00, 0x65, 0x00, 0x66, 0x00, 0x69, 0x00, 0x00, 0x00}},
+			},
+		).
+		Open()
+	entry, err := efivarfs.GetLoaderEntrySelected()
+	if err != nil {
+		t.Fatalf("%v", err)
+	}
+
+	if entry != "arch-linux.efi" {
+		t.Fatalf("entry does not match the loader entry")
+	}
+}

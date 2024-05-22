@@ -114,3 +114,11 @@ func (e *Efivarfs) GetBootOrder() []string {
 	}
 	return rsb
 }
+
+func (e *Efivarfs) GetLoaderEntrySelected() (string, error) {
+	var rsb efivar.Efistring
+	if err := e.GetVar(efivar.LoaderEntrySelected, &rsb); err != nil {
+		return "", err
+	}
+	return string(rsb), nil
+}
