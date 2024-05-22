@@ -231,3 +231,17 @@ type Marshallable interface {
 type Unmarshallable interface {
 	Unmarshal(data *bytes.Buffer) error
 }
+
+// Some basic UEFI types
+
+type Efistring string
+
+func (es *Efistring) Unmarshal(b *bytes.Buffer) error {
+	bb := util.ReadNullString(b)
+	s, err := util.ParseUtf16Var(bytes.NewBuffer(bb))
+	if err != nil {
+		return err
+	}
+	*es = Efistring(s)
+	return nil
+}
