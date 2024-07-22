@@ -79,7 +79,7 @@ func (t *FSWrapper) isimmutable(efivar string) error {
 	switch {
 	case errors.Is(err, attr.ErrIsImmutable):
 		if !t.unsetimmutable {
-			return errImmutable
+			return fmt.Errorf("%s: %w", efivar, errImmutable)
 		}
 		if err := attr.UnsetImmutable(efivar); err != nil {
 			return fmt.Errorf("couldn't unset immutable bit: %w", err)
