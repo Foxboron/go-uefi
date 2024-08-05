@@ -20,8 +20,9 @@ import (
 )
 
 var (
-	OIDSpcIndirectDataContent = encasn1.ObjectIdentifier{1, 3, 6, 1, 4, 1, 311, 2, 1, 4}
-	OIDSpcPEImageDataObjID    = encasn1.ObjectIdentifier{1, 3, 6, 1, 4, 1, 311, 2, 1, 15}
+	OIDSpcIndirectDataContent         = encasn1.ObjectIdentifier{1, 3, 6, 1, 4, 1, 311, 2, 1, 4}
+	OIDSpcPEImageDataObjID            = encasn1.ObjectIdentifier{1, 3, 6, 1, 4, 1, 311, 2, 1, 15}
+	OIDMicrosoftIndividualCodeSigning = encasn1.ObjectIdentifier{1, 3, 6, 1, 4, 1, 311, 2, 1, 21}
 )
 
 // Authenticode represents an authenticode signature.
@@ -164,7 +165,8 @@ func ParseAuthenticode(b []byte) (*Authenticode, error) {
 		return nil, errors.New("missing objectid type")
 	}
 
-	if !dtype.Equal(OIDSpcPEImageDataObjID) {
+	// TODO: Apparently microsoft sometimes uses a special OID for shim keys
+	if !dtype.Equal(OIDSpcPEImageDataObjID) && !dtype.Equal(OIDMicrosoftIndividualCodeSigning) {
 		return nil, fmt.Errorf("incorrect, expected %v, got %v", OIDSpcIndirectDataContent, dtype)
 	}
 
