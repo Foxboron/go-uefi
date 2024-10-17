@@ -39,6 +39,11 @@ func (sd *SignatureDatabase) Exists(certtype util.EFIGUID, siglist *SignatureLis
 	return false
 }
 
+// Checks if the bytes in a list is present in the signature database
+func (sd *SignatureDatabase) BytesExists(certtype util.EFIGUID, owner util.EFIGUID, data []byte) bool {
+	return sd.SigDataExists(certtype, &SignatureData{Owner: owner, Data: data})
+}
+
 // Appends the raw signature values to the database
 func (sd *SignatureDatabase) Append(certtype util.EFIGUID, owner util.EFIGUID, data []byte) error {
 	if _, ok := ValidEFISignatureSchemes[certtype]; !ok {
