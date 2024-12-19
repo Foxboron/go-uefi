@@ -2,16 +2,18 @@ package authenticode
 
 import (
 	"bytes"
+	"cmp"
 	"crypto"
 	"crypto/x509"
 	"debug/pe"
 	"encoding/binary"
 	"fmt"
 	"io"
-	"sort"
+	"slices"
+
+	"github.com/pkg/errors"
 
 	"github.com/foxboron/go-uefi/efi/signature"
-	"github.com/pkg/errors"
 )
 
 var (
@@ -47,7 +49,10 @@ func Parse(r io.ReaderAt) (*PECOFFBinary, error) {
 	var fileSize int
 
 	// 2. Initialize a hash algorithm context
-	hashBuffer := new(bytes.Buffer)
+	hashBuffer, err := makeBuffer(r)
+	if err != nil {
+		return nil, fmt.Errorf("failed creating hash buffer: %v", err)
+	}
 
 	readSection := func(r io.ReaderAt, dst io.Writer, off, n int64) error {
 		src := io.NewSectionReader(r, off, n-off)
@@ -146,7 +151,7 @@ func Parse(r io.ReaderAt) (*PECOFFBinary, error) {
 	// structure as a key, arrange the table's elements in ascending order. In other
 	// words, sort the section headers in ascending order according to the disk-file
 	// offset of the sections.
-	sort.Slice(sections, func(i, j int) bool { return sections[i].Offset < sections[j].Offset })
+	slices.SortFunc(sections, func(a, b *pe.Section) int { return cmp.Compare(a.Offset, b.Offset) })
 
 	for _, sec := range sections {
 		// Do not include any section headers in the table whose SizeOfRawData field is zero.
@@ -157,11 +162,9 @@ func Parse(r io.ReaderAt) (*PECOFFBinary, error) {
 		// 11. Walk through the sorted table, load the corresponding section into
 		// memory, and hash the entire section. Use the SizeOfRawData field in the
 		// SectionHeader structure to determine the amount of data to hash.
-		buf, err := sec.Data()
-		if err != nil {
+		if _, err = hashBuffer.ReadFrom(sec.Open()); err != nil {
 			return nil, fmt.Errorf("can't parse section data from binary: %v", err)
 		}
-		hashBuffer.Write(buf)
 
 		// 12. Add the section’s SizeOfRawData value to SUM_OF_BYTES_HASHED.
 		sumOfBytesHashed += int64(sec.Size)
@@ -215,9 +218,8 @@ func Parse(r io.ReaderAt) (*PECOFFBinary, error) {
 
 	fileSize += n
 
-	// Read the entire filecontent into memory.
-	var fileContent bytes.Buffer
-	if err := readSection(r, &fileContent, 0, 1<<63-1); err != nil {
+	// Read and discard the entire filecontent.
+	if err := readSection(r, io.Discard, 0, 1<<63-1); err != nil {
 		return nil, err
 	}
 
@@ -318,20 +320,29 @@ func (p *PECOFFBinary) Verify(cert *x509.Certificate) (bool, error) {
 	return false, ErrNoValidSignatures
 }
 
-// Return the binary with any appended signatures
+// Bytes returns the binary with any appended signatures
 func (p *PECOFFBinary) Bytes() []byte {
-	var b bytes.Buffer
-	io.Copy(&b, io.MultiReader(p.firstSection, p.optDataDir, p.lastSection, bytes.NewBuffer(p.padding)))
+	b := bytes.NewBuffer(make([]byte, 0, p.firstSection.Size()+
+		p.optDataDir.Size()+
+		p.lastSection.Size()+
+		int64(len(p.padding))+
+		int64(p.certTable.Len()),
+	))
 
-	// Append the certificate table
-	b.Write(p.certTable.Bytes())
-
-	// Reset the section readers
-	p.firstSection.Seek(0, io.SeekStart)
-	p.optDataDir.Seek(0, io.SeekStart)
-	p.lastSection.Seek(0, io.SeekStart)
+	b.ReadFrom(p.Open())
 
 	return b.Bytes()
+}
+
+// Open returns an io.Reader containing the binary with any appended signatures
+func (p *PECOFFBinary) Open() io.Reader {
+	return io.MultiReader(
+		io.NewSectionReader(p.firstSection, 0, p.firstSection.Size()),
+		io.NewSectionReader(p.optDataDir, 0, p.optDataDir.Size()),
+		io.NewSectionReader(p.lastSection, 0, p.lastSection.Size()),
+		bytes.NewReader(p.padding),
+		bytes.NewReader(p.certTable.Bytes()),
+	)
 }
 
 // Hash makes a hash of the HashContent bytes.
@@ -376,4 +387,27 @@ func PaddingBytes(srcLen, blockSize int) ([]byte, int) {
 func Padding(src []byte, blockSize int) []byte {
 	padBytes, _ := PaddingBytes(len(src), blockSize)
 	return append(src, padBytes...)
+}
+
+func makeBuffer(r io.ReaderAt) (*bytes.Buffer, error) {
+	s, ok := r.(io.Seeker)
+	if !ok {
+		return bytes.NewBuffer(nil), nil
+	}
+
+	// Our reader is a seeker, we can seek to the end and get the size, and avoid
+	// unnecessary allocations during the buffer grow.
+	size, err := s.Seek(0, io.SeekEnd)
+	if err != nil {
+		return nil, err
+	}
+
+	slc := make([]byte, 0, size)
+
+	_, err = s.Seek(0, io.SeekStart)
+	if err != nil {
+		return nil, err
+	}
+
+	return bytes.NewBuffer(slc), nil
 }
