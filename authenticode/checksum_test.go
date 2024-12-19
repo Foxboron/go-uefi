@@ -82,15 +82,24 @@ func TestSignVerify(t *testing.T) {
 	cert, key := asntest.InitCert()
 
 	for n, c := range cases {
+		unrecoverable := false
 
 		t.Run(fmt.Sprintf("case %d", n), func(t *testing.T) {
-			b, err := os.ReadFile(c.f)
+			f, err := os.Open(c.f)
 			if err != nil {
-				log.Fatal(err)
+				unrecoverable = true
+				t.Fatalf("failed reading file: %v", err)
 			}
-			checksum, err := Parse(bytes.NewReader(b))
+			defer f.Close()
+
+			checksum, err := Parse(f)
 			if err != nil {
 				t.Fatalf("failed checksumming file: %v", err)
+			}
+
+			hashedbytes := checksum.Hash(crypto.SHA256)
+			if !bytes.Equal(c.paddedchecksum, hashedbytes) {
+				t.Fatalf("checksums didn't match. expected %x, got %x", c.checksum, hashedbytes)
 			}
 
 			_, err = checksum.Sign(key, cert)
@@ -107,6 +116,10 @@ func TestSignVerify(t *testing.T) {
 				t.Fatalf("failed verify binary, not ok")
 			}
 		})
+
+		if unrecoverable {
+			t.FailNow()
+		}
 	}
 
 }
