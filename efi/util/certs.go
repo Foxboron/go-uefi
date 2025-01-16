@@ -5,7 +5,7 @@ import (
 	"crypto/x509"
 	"encoding/pem"
 	"fmt"
-	"io/ioutil"
+	"os"
 )
 
 func ReadKey(b []byte) (*rsa.PrivateKey, error) {
@@ -26,7 +26,7 @@ func ReadKey(b []byte) (*rsa.PrivateKey, error) {
 }
 
 func ReadKeyFromFile(path string) (*rsa.PrivateKey, error) {
-	b, err := ioutil.ReadFile(path)
+	b, err := os.ReadFile(path)
 	if err != nil {
 		return nil, err
 	}
@@ -47,7 +47,7 @@ func ReadCert(b []byte) (*x509.Certificate, error) {
 }
 
 func ReadCertFromFile(path string) (*x509.Certificate, error) {
-	b, err := ioutil.ReadFile(path)
+	b, err := os.ReadFile(path)
 	if err != nil {
 		return nil, err
 	}

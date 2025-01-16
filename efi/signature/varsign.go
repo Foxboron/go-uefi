@@ -8,12 +8,12 @@ import (
 	"io"
 	"log"
 
-	"github.com/foxboron/go-uefi/efi/util"
-	"github.com/foxboron/go-uefi/efivar"
+	"github.com/pkg/errors"
 	"golang.org/x/crypto/cryptobyte"
 
+	"github.com/foxboron/go-uefi/efi/util"
+	"github.com/foxboron/go-uefi/efivar"
 	"github.com/foxboron/go-uefi/pkcs7"
-	"github.com/pkg/errors"
 )
 
 // Section 32.2.4 Code Defintiions
@@ -71,7 +71,7 @@ func ReadWinCertificate(f io.Reader) (WINCertificate, error) {
 	return cert, nil
 }
 
-func WriteWinCertificate(b *bytes.Buffer, w *WINCertificate) {
+func WriteWinCertificate(b io.Writer, w *WINCertificate) {
 	for _, d := range []interface{}{w.Length, w.Revision, w.CertType, w.Certificate} {
 		if err := binary.Write(b, binary.LittleEndian, d); err != nil {
 			log.Fatal(err)
