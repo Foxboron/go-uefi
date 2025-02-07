@@ -3,7 +3,7 @@ package signature
 import (
 	"bytes"
 	"fmt"
-	"io/ioutil"
+	"os"
 	"path/filepath"
 	"testing"
 
@@ -14,7 +14,7 @@ import (
 
 func ReadTestData(dir string) []string {
 	var paths []string
-	files, _ := ioutil.ReadDir(dir)
+	files, _ := os.ReadDir(dir)
 	for _, file := range files {
 		paths = append(paths, filepath.Join(dir, file.Name()))
 	}
@@ -58,7 +58,7 @@ func TestParseSignatureListVars(t *testing.T) {
 
 func TestParseSignatureListFile(t *testing.T) {
 	for _, path := range SiglistTestFiles {
-		b, _ := ioutil.ReadFile(path)
+		b, _ := os.ReadFile(path)
 		f := bytes.NewReader(b)
 		c, err := ReadSignatureList(f)
 		if err != nil {
@@ -77,7 +77,7 @@ func TestParseSignatureListFile(t *testing.T) {
 
 func TestParseSignatureListHashFile(t *testing.T) {
 	for _, path := range SiglistchecksumTestFiles {
-		b, _ := ioutil.ReadFile(path)
+		b, _ := os.ReadFile(path)
 		f := bytes.NewReader(b)
 		c, err := ReadSignatureList(f)
 		if err != nil {

@@ -1,6 +1,7 @@
 package authenticode
 
 import (
+	"bytes"
 	"crypto"
 	"os"
 	"testing"
@@ -12,7 +13,7 @@ func TestVerifyAuthenticode(t *testing.T) {
 	cert, key := asntest.InitCert()
 
 	img := []byte("test")
-	b, err := SignAuthenticode(key, cert, img, crypto.SHA256)
+	b, err := SignAuthenticode(key, cert, bytes.NewReader(img), crypto.SHA256)
 	if err != nil {
 		t.Fatalf("message")
 	}
@@ -21,7 +22,7 @@ func TestVerifyAuthenticode(t *testing.T) {
 	if err != nil {
 		t.Fatalf("%v", err)
 	}
-	ok, err := auth.Verify(cert, img)
+	ok, err := auth.Verify(cert, bytes.NewReader(img))
 	if err != nil {
 		t.Fatalf("failed to verify authenticode checksum: %v", err)
 	}
@@ -57,7 +58,7 @@ func TestCompareOldImplementation(t *testing.T) {
 	}
 
 	img := []byte{0x00, 0x01}
-	bb, err := SignAuthenticode(key, cert, img, crypto.SHA256)
+	bb, err := SignAuthenticode(key, cert, bytes.NewReader(img), crypto.SHA256)
 	if err != nil {
 		t.Fatalf("failed signing digest")
 	}

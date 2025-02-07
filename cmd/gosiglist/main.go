@@ -4,7 +4,6 @@ import (
 	"bytes"
 	"flag"
 	"fmt"
-	"io/ioutil"
 	"log"
 	"os"
 
@@ -26,7 +25,7 @@ func main() {
 	input := args[0]
 	output := args[1]
 	guid := util.StringToGUID(*owner)
-	b, err := ioutil.ReadFile(input)
+	b, err := os.ReadFile(input)
 	if err != nil {
 		log.Fatal(err)
 	}
@@ -34,7 +33,7 @@ func main() {
 	c.AppendBytes(*guid, b)
 	buf := new(bytes.Buffer)
 	signature.WriteSignatureList(buf, *c)
-	err = ioutil.WriteFile(output, buf.Bytes(), 0644)
+	err = os.WriteFile(output, buf.Bytes(), 0644)
 	if err != nil {
 		log.Fatal(err)
 	}

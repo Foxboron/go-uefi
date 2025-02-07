@@ -2,7 +2,6 @@ package main
 
 import (
 	"fmt"
-	"io/ioutil"
 	"log"
 	"os"
 
@@ -14,7 +13,7 @@ func main() {
 		fmt.Println("gowritevar [var] [efi variable]")
 		os.Exit(1)
 	}
-	b, err := ioutil.ReadFile(os.Args[2])
+	b, err := os.ReadFile(os.Args[2])
 	if err != nil {
 		log.Fatal(err)
 	}

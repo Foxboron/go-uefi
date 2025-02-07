@@ -8,15 +8,16 @@ import (
 	"crypto"
 	"crypto/x509"
 	"crypto/x509/pkix"
+	encasn1 "encoding/asn1"
 	"errors"
 	"fmt"
 	"hash"
+	"io"
 
-	encasn1 "encoding/asn1"
-
-	"github.com/foxboron/go-uefi/pkcs7"
 	"golang.org/x/crypto/cryptobyte"
 	"golang.org/x/crypto/cryptobyte/asn1"
+
+	"github.com/foxboron/go-uefi/pkcs7"
 )
 
 var (
@@ -34,7 +35,7 @@ type Authenticode struct {
 
 // Verify validates an authenticode signature.
 // Note it doesn't validate x509 certificate chains.
-func (a *Authenticode) Verify(cert *x509.Certificate, img []byte) (bool, error) {
+func (a *Authenticode) Verify(cert *x509.Certificate, img io.Reader) (bool, error) {
 	var h hash.Hash
 	switch {
 	case a.Algid.Algorithm.Equal(pkcs7.OIDDigestAlgorithmSHA256):
@@ -47,7 +48,10 @@ func (a *Authenticode) Verify(cert *x509.Certificate, img []byte) (bool, error) 
 		return false, errors.New("wrong block size")
 	}
 
-	h.Write(img)
+	if _, err := io.Copy(h, img); err != nil {
+		return false, err
+	}
+
 	digest := h.Sum(nil)
 	if !bytes.Equal(digest, a.Digest) {
 		return false, errors.New("incorrect digest")
@@ -126,9 +130,13 @@ func CreateSpcIndirectDataContent(digest []byte, alg crypto.Hash) ([]byte, error
 
 // SignAuthenticode signs a digest with the SPC Indirect Data Content as
 // specified by the authenticode standard.
-func SignAuthenticode(signer crypto.Signer, cert *x509.Certificate, digest []byte, alg crypto.Hash) ([]byte, error) {
+func SignAuthenticode(signer crypto.Signer, cert *x509.Certificate, digest io.Reader, alg crypto.Hash) ([]byte, error) {
 	h := alg.New()
-	h.Write(digest)
+
+	if _, err := io.Copy(h, digest); err != nil {
+		return nil, err
+	}
+
 	b, err := CreateSpcIndirectDataContent(h.Sum(nil), alg)
 	if err != nil {
 		return nil, fmt.Errorf("failed creating SpcIndirectDataContent: %v", err)

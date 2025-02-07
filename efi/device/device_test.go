@@ -1,8 +1,8 @@
 package device
 
 import (
-	"io/ioutil"
 	"log"
+	"os"
 	"path/filepath"
 	"testing"
 
@@ -12,7 +12,7 @@ import (
 func TestAbs(t *testing.T) {
 	dir := "../../tests/data/boot"
 	attributes.Efivars = dir
-	files, err := ioutil.ReadDir(dir)
+	files, err := os.ReadDir(dir)
 	if err != nil {
 		log.Fatal(err)
 	}

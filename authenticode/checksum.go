@@ -29,10 +29,10 @@ type PECOFFBinary struct {
 	// DataDirectory for the Certificate table
 	Datadir pe.DataDirectory
 	// Reader with the hashable bytes
-	HashContent  *bytes.Buffer
+	hashContent  SizeReaderAt
 	length       int
 	padding      []byte
-	optDataDir   *bytes.Reader
+	optDataDir   *io.SectionReader
 	certTable    *bytes.Buffer
 	firstSection *io.SectionReader
 	lastSection  *io.SectionReader
@@ -49,22 +49,8 @@ func Parse(r io.ReaderAt) (*PECOFFBinary, error) {
 	var fileSize int
 
 	// 2. Initialize a hash algorithm context
-	hashBuffer, err := makeBuffer(r)
-	if err != nil {
-		return nil, fmt.Errorf("failed creating hash buffer: %v", err)
-	}
-
-	readSection := func(r io.ReaderAt, dst io.Writer, off, n int64) error {
-		src := io.NewSectionReader(r, off, n-off)
-		if _, err := io.Copy(dst, src); err != nil {
-			return err
-		}
-		return nil
-	}
-
-	// Wraps r and hashBuffer with section readers
-	readBytes := func(off, n int64) error {
-		return readSection(r, hashBuffer, off, n)
+	makeSectionReader := func(r io.ReaderAt, off, n int64) *io.SectionReader {
+		return io.NewSectionReader(r, off, n-off)
 	}
 
 	f, err := pe.NewFile(r)
@@ -102,9 +88,7 @@ func Parse(r io.ReaderAt) (*PECOFFBinary, error) {
 	// 3. Hash the image header from its base to immediately before the start of
 	// the checksum address, as specified in Optional Header Windows-Specific
 	// Fields.
-	if err := readBytes(0, cksumStart); err != nil {
-		return nil, err
-	}
+	sectionReadersAt := []SizeReaderAt{makeSectionReader(r, 0, cksumStart)}
 
 	// 4. Skip over the checksum, which is a 4-byte field.
 	cksumEnd := cksumStart + 4
@@ -112,9 +96,7 @@ func Parse(r io.ReaderAt) (*PECOFFBinary, error) {
 	// 5. Hash everything from the end of the checksum field to immediately before
 	// the start of the Certificate Table entry, as specified in Optional Header
 	// Data Directories.
-	if err := readBytes(cksumEnd, dd4start); err != nil {
-		return nil, err
-	}
+	sectionReadersAt = append(sectionReadersAt, makeSectionReader(r, cksumEnd, dd4start))
 
 	firstSection := io.NewSectionReader(r, 0, dd4start)
 
@@ -123,19 +105,13 @@ func Parse(r io.ReaderAt) (*PECOFFBinary, error) {
 	dd4end := dd4start + 8
 
 	// We save this so we can replace the optDataDir at a later point
-	var datadir bytes.Buffer
-	readSection(r, &datadir, dd4start, dd4end)
-
-	optDataDir := bytes.NewReader(datadir.Bytes())
-	// filecontent.Add(optDataDir)
+	optDataDir := makeSectionReader(r, dd4start, dd4end)
 
 	// 7. Exclude the Certificate Table entry from the calculation and hash everything
 	// from the end of the Certificate Table entry to the end of image header,
 	// including Section Table (headers). The Certificate Table entry is 8 bytes long,
 	// as specified in Optional Header Data Directories.
-	if err := readBytes(dd4end, SizeOfHeaders); err != nil {
-		return nil, err
-	}
+	sectionReadersAt = append(sectionReadersAt, makeSectionReader(r, dd4end, SizeOfHeaders))
 
 	// 8. Create a counter called SUM_OF_BYTES_HASHED, which is not part of the
 	// signature. Set this counter to the SizeOfHeaders field, as specified in Optional
@@ -162,9 +138,7 @@ func Parse(r io.ReaderAt) (*PECOFFBinary, error) {
 		// 11. Walk through the sorted table, load the corresponding section into
 		// memory, and hash the entire section. Use the SizeOfRawData field in the
 		// SectionHeader structure to determine the amount of data to hash.
-		if _, err = hashBuffer.ReadFrom(sec.Open()); err != nil {
-			return nil, fmt.Errorf("can't parse section data from binary: %v", err)
-		}
+		sectionReadersAt = append(sectionReadersAt, newSizeReaderAt(sec))
 
 		// 12. Add the section’s SizeOfRawData value to SUM_OF_BYTES_HASHED.
 		sumOfBytesHashed += int64(sec.Size)
@@ -189,7 +163,7 @@ func Parse(r io.ReaderAt) (*PECOFFBinary, error) {
 
 	// Make a bytes.Buffer with all the remaining bytes
 	var rest bytes.Buffer
-	if err := readSection(r, &rest, sumOfBytesHashed, 1<<63-1); err != nil {
+	if _, err := io.Copy(&rest, io.NewSectionReader(r, sumOfBytesHashed, 1<<63-1)); err != nil {
 		return nil, err
 	}
 
@@ -203,23 +177,24 @@ func Parse(r io.ReaderAt) (*PECOFFBinary, error) {
 	// Truncate the buffer with buffer length.
 	rest.Truncate(binaryRest)
 
-	// Copy the remaining bytes into the hashbuffer
-	if _, err := io.Copy(hashBuffer, &rest); err != nil {
-		return nil, err
-	}
-
 	// Add an offset reader to read all the remaining bytes
 	lastSection := io.NewSectionReader(r, dd4end, (sumOfBytesHashed+int64(binaryRest))-dd4end)
 
 	// If FILE_SIZE is not a multiple of 8 bytes, the data added to the hash must be appended with zero
 	// padding of length (8 – (FILE_SIZE % 8)) bytes.
 	paddingBytes, n := PaddingBytes(fileSize, 8)
-	hashBuffer.Write(paddingBytes)
+	rest.Write(paddingBytes)
+
+	// Take the remaining bytes
+	sectionReadersAt = append(
+		sectionReadersAt,
+		sectionReaderFromBytes(rest.Bytes()),
+	)
 
 	fileSize += n
 
 	// Read and discard the entire filecontent.
-	if err := readSection(r, io.Discard, 0, 1<<63-1); err != nil {
+	if _, err := io.Copy(io.Discard, io.NewSectionReader(r, 0, 1<<63-1)); err != nil {
 		return nil, err
 	}
 
@@ -230,18 +205,18 @@ func Parse(r io.ReaderAt) (*PECOFFBinary, error) {
 	}
 
 	return &PECOFFBinary{
+		Datadir:      ddEntry,
+		hashContent:  newMultiReaderAt(sectionReadersAt...),
 		length:       fileSize,
 		padding:      paddingBytes,
-		certTable:    &certTable,
-		HashContent:  hashBuffer,
-		Datadir:      ddEntry,
-		firstSection: firstSection,
 		optDataDir:   optDataDir,
+		certTable:    &certTable,
+		firstSection: firstSection,
 		lastSection:  lastSection,
 	}, nil
 }
 
-// Append an signature to the file.
+// AppendSignature append a signature to the file.
 func (p *PECOFFBinary) AppendSignature(sig []byte) error {
 	// var w bytes.Buffer
 	info := signature.WINCertificate{
@@ -276,7 +251,7 @@ func (p *PECOFFBinary) AppendSignature(sig []byte) error {
 		return fmt.Errorf("failed appending signature: %v", err)
 	}
 
-	p.optDataDir = bytes.NewReader(b.Bytes())
+	p.optDataDir = sectionReaderFromBytes(b.Bytes())
 
 	return nil
 }
@@ -284,7 +259,7 @@ func (p *PECOFFBinary) AppendSignature(sig []byte) error {
 // Sign the PE/COFF binary and return the signature.
 // .Bytes() will return the binary with the signature appended.
 func (p *PECOFFBinary) Sign(key crypto.Signer, cert *x509.Certificate) ([]byte, error) {
-	sig, err := SignAuthenticode(key, cert, p.HashContent.Bytes(), crypto.SHA256)
+	sig, err := SignAuthenticode(key, cert, makeSectionReader(p.hashContent), crypto.SHA256)
 	if err != nil {
 		return nil, fmt.Errorf("failed signing binary: %v", err)
 	}
@@ -308,7 +283,8 @@ func (p *PECOFFBinary) Verify(cert *x509.Certificate) (bool, error) {
 		if err != nil {
 			return false, fmt.Errorf("failed parsing pkcs7 signature from binary: %v", err)
 		}
-		ok, err := authcode.Verify(cert, p.HashContent.Bytes())
+
+		ok, err := authcode.Verify(cert, makeSectionReader(p.hashContent))
 		if err != nil {
 			return false, err
 		}
@@ -337,18 +313,22 @@ func (p *PECOFFBinary) Bytes() []byte {
 // Open returns an io.Reader containing the binary with any appended signatures
 func (p *PECOFFBinary) Open() io.Reader {
 	return io.MultiReader(
-		io.NewSectionReader(p.firstSection, 0, p.firstSection.Size()),
-		io.NewSectionReader(p.optDataDir, 0, p.optDataDir.Size()),
-		io.NewSectionReader(p.lastSection, 0, p.lastSection.Size()),
+		copySectionReader(p.firstSection),
+		copySectionReader(p.optDataDir),
+		copySectionReader(p.lastSection),
 		bytes.NewReader(p.padding),
 		bytes.NewReader(p.certTable.Bytes()),
 	)
 }
 
-// Hash makes a hash of the HashContent bytes.
+// Hash makes a hash of the hashContent bytes.
 func (p *PECOFFBinary) Hash(h crypto.Hash) []byte {
 	hh := h.New()
-	hh.Write(p.HashContent.Bytes())
+
+	if _, err := io.Copy(hh, makeSectionReader(p.hashContent)); err != nil {
+		return nil
+	}
+
 	return hh.Sum(nil)
 }
 
@@ -384,30 +364,23 @@ func PaddingBytes(srcLen, blockSize int) ([]byte, int) {
 	return make([]byte, padLen), padLen
 }
 
-func Padding(src []byte, blockSize int) []byte {
-	padBytes, _ := PaddingBytes(len(src), blockSize)
-	return append(src, padBytes...)
+func makeSectionReader(at SizeReaderAt) *io.SectionReader {
+	return io.NewSectionReader(at, 0, at.Size())
 }
 
-func makeBuffer(r io.ReaderAt) (*bytes.Buffer, error) {
-	s, ok := r.(io.Seeker)
-	if !ok {
-		return bytes.NewBuffer(nil), nil
-	}
-
-	// Our reader is a seeker, we can seek to the end and get the size, and avoid
-	// unnecessary allocations during the buffer grow.
-	size, err := s.Seek(0, io.SeekEnd)
-	if err != nil {
-		return nil, err
-	}
-
-	slc := make([]byte, 0, size)
-
-	_, err = s.Seek(0, io.SeekStart)
-	if err != nil {
-		return nil, err
-	}
-
-	return bytes.NewBuffer(slc), nil
+func sectionReaderFromBytes(b []byte) *io.SectionReader {
+	return io.NewSectionReader(bytes.NewReader(b), 0, int64(len(b)))
 }
+
+func copySectionReader(sr *io.SectionReader) *io.SectionReader {
+	return io.NewSectionReader(sr, 0, sr.Size())
+}
+
+func newSizeReaderAt(sec *pe.Section) SizeReaderAt { return &readerAtSize{sec, int64(sec.Size)} }
+
+type readerAtSize struct {
+	io.ReaderAt
+	size int64
+}
+
+func (r *readerAtSize) Size() int64 { return r.size }
