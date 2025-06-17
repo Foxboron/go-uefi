@@ -102,7 +102,7 @@ func (bo *bootorder) Unmarshal(b *bytes.Buffer) error {
 		sec := make([]byte, 2)
 		b.Read(sec)
 		val := binary.BigEndian.Uint16([]byte{sec[1], sec[0]})
-		*bo = append(*bo, fmt.Sprintf("Boot%04x", val))
+		*bo = append(*bo, fmt.Sprintf("Boot%04X", val))
 	}
 	return nil
 }
