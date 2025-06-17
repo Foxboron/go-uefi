@@ -83,8 +83,7 @@ var (
 
 	// The boot option that was selected for the current boot.
 	BootCurrent = Efivar{"BootCurrent", util.StringToGUID("8be4df61-93ca-11d2-aa0d-00e098032b8c"),
-		attributes.EFI_VARIABLE_NON_VOLATILE |
-			attributes.EFI_VARIABLE_BOOTSERVICE_ACCESS |
+		attributes.EFI_VARIABLE_BOOTSERVICE_ACCESS |
 			attributes.EFI_VARIABLE_RUNTIME_ACCESS}
 
 	// The boot option that was selected for the current boot.
