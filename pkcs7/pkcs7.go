@@ -33,28 +33,56 @@ var (
 	ErrNoCertificate = errors.New("no valid certificates")
 )
 
+type Config struct {
+	NoAttr  bool
+	NoCerts bool
+}
+
+type Option func(*Config)
+
+// Control whether or not the authenticated attributes gets hashed
+func NoAttr() Option {
+	return func(c *Config) {
+		c.NoAttr = true
+	}
+}
+
+// Control whether or not the certificate gets embedded into the signature
+func NoCerts() Option {
+	return func(c *Config) {
+		c.NoCerts = true
+	}
+}
+
 // Partially implements RFC2315
-func SignPKCS7(signer crypto.Signer, cert *x509.Certificate, oid encasn1.ObjectIdentifier, content []byte) ([]byte, error) {
+func SignPKCS7(signer crypto.Signer, cert *x509.Certificate, oid encasn1.ObjectIdentifier, content []byte, opts ...Option) ([]byte, error) {
+	config := &Config{}
+	for _, optFunc := range opts {
+		optFunc(config)
+	}
+
 	var contentInfo cryptobyte.Builder
 
-	// Attributes
-	// TODO, not needed for Wincert/UEFI. But we do it anyway
-	// Original Implementation has:
-	// - OIDAttributeContentType
-	// - OIDAttributeSigningTime
-	// - OIDAttributeMessageDigest
-
-	// Hash the authenticated attributes
 	h := crypto.SHA256.New()
 	h.Write(content)
-	attrs := &Attributes{
-		ContentType:   oid,
-		MessageDigest: h.Sum(nil),
-		SigningTime:   time.Now().UTC(),
+
+	var attributes []byte
+	if !config.NoAttr {
+		// Hash authenticated attributes
+		// TODO, not needed for Wincert/UEFI. But we do it anyway
+		// Original Implementation has:
+		// - OIDAttributeContentType
+		// - OIDAttributeSigningTime
+		// - OIDAttributeMessageDigest
+		attrs := &Attributes{
+			ContentType:   oid,
+			MessageDigest: h.Sum(nil),
+			SigningTime:   time.Now().UTC(),
+		}
+		attributes = attrs.Marshal()
+		h = crypto.SHA256.New()
+		h.Write(attributes)
 	}
-	attributes := attrs.Marshal()
-	h = crypto.SHA256.New()
-	h.Write(attributes)
 
 	sig, err := signer.Sign(rand.Reader, h.Sum(nil), crypto.SHA256)
 	if err != nil {
@@ -106,11 +134,13 @@ func SignPKCS7(signer crypto.Signer, cert *x509.Certificate, oid encasn1.ObjectI
 					}
 				})
 
-				// certificates [0] IMPLICIT ExtendedCertificatesAndCertificates OPTIONAL
-				b.AddASN1(asn1.Tag(0).ContextSpecific().Constructed(), func(b *cryptobyte.Builder) {
-					// b.AddBytes(signer.Raw)
-					b.AddBytes(cert.Raw)
-				})
+				if !config.NoCerts {
+					// certificates [0] IMPLICIT ExtendedCertificatesAndCertificates OPTIONAL
+					b.AddASN1(asn1.Tag(0).ContextSpecific().Constructed(), func(b *cryptobyte.Builder) {
+						// b.AddBytes(signer.Raw)
+						b.AddBytes(cert.Raw)
+					})
+				}
 
 				// Not Used
 				// crls [1] IMPLICIT CertificateRevocationLists OPTIONAL
@@ -142,13 +172,15 @@ func SignPKCS7(signer crypto.Signer, cert *x509.Certificate, oid encasn1.ObjectI
 							b.AddASN1NULL()
 						})
 
-						// authenticatedAttributes [0] IMPLICIT Attributes OPTIONAL
-						b.AddASN1(asn1.Tag(0).ContextSpecific().Constructed(), func(b *cryptobyte.Builder) {
-							attrsOuter := cryptobyte.String(attributes)
-							var attrsInner cryptobyte.String
-							attrsOuter.ReadASN1(&attrsInner, asn1.SET)
-							b.AddBytes(attrsInner)
-						})
+						if !config.NoAttr {
+							// authenticatedAttributes [0] IMPLICIT Attributes OPTIONAL
+							b.AddASN1(asn1.Tag(0).ContextSpecific().Constructed(), func(b *cryptobyte.Builder) {
+								attrsOuter := cryptobyte.String(attributes)
+								var attrsInner cryptobyte.String
+								attrsOuter.ReadASN1(&attrsInner, asn1.SET)
+								b.AddBytes(attrsInner)
+							})
+						}
 
 						// digestEncryptionAlgorithm DigestEncryptionAlgorithmIdentifier
 						b.AddASN1(asn1.SEQUENCE, func(b *cryptobyte.Builder) {

@@ -2,6 +2,8 @@ package pkcs7
 
 import (
 	"crypto"
+	encasn1 "encoding/asn1"
+	"fmt"
 	"log"
 	"os"
 	"testing"
@@ -12,24 +14,46 @@ import (
 
 func TestVerifySignature(t *testing.T) {
 	cert, key = InitCert()
-	b, err := SignPKCS7(key, cert, OIDData, []byte{0x00, 0x01})
-	if err != nil {
-		t.Fatalf("message")
-	}
-	pkcs, err := ParsePKCS7(b)
-	if err != nil {
-		t.Fatalf("failed parsing PKCS7 signature: %v", err)
-	}
+	// TODO: Introduce negative cases
+	for n, c := range []struct {
+		t       string
+		options []Option
+		data    []byte
+		oid     encasn1.ObjectIdentifier
+	}{
+		{
+			t:       "Base case",
+			options: []Option{},
+			data:    []byte{0x00, 0x01},
+			oid:     OIDData,
+		},
+		{
+			t:       "All options",
+			options: []Option{NoAttr(), NoCerts()},
+			data:    []byte{0x00, 0x01},
+			oid:     OIDData,
+		},
+	} {
+		t.Run(fmt.Sprintf("%d - %s", n, c.t), func(t *testing.T) {
+			b, err := SignPKCS7(key, cert, c.oid, c.data)
+			if err != nil {
+				t.Fatalf("failed signing: %v", err)
+			}
+			pkcs, err := ParsePKCS7(b)
+			if err != nil {
+				t.Fatalf("failed parsing PKCS7 signature: %v", err)
+			}
 
-	ok, err := pkcs.Verify(cert)
-	if err != nil {
-		t.Fatalf("failed verifying signature: %v", err)
-	}
+			ok, err := pkcs.Verify(cert)
+			if err != nil {
+				t.Fatalf("failed verifying signature: %v", err)
+			}
 
-	if !ok {
-		t.Fatalf("Signature should validate")
+			if !ok {
+				t.Fatalf("Signature should validate")
+			}
+		})
 	}
-
 }
 
 // Try to parse a signature created by sbvarsign
