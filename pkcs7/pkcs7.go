@@ -40,12 +40,14 @@ type Config struct {
 
 type Option func(*Config)
 
+// Control whether or not the authenticated attributes gets hashed
 func NoAttr() Option {
 	return func(c *Config) {
 		c.NoAttr = true
 	}
 }
 
+// Control whether or not the certificate gets embedded into the signature
 func NoCerts() Option {
 	return func(c *Config) {
 		c.NoCerts = true
