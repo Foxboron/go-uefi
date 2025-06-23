@@ -264,7 +264,7 @@ func parseCertificates(der *cryptobyte.String) ([]*x509.Certificate, error) {
 	}
 	certs, err := x509.ParseCertificates(raw)
 	if err != nil {
-		return nil, fmt.Errorf("failed parsing certificates: %v", err)
+		return nil, fmt.Errorf("failed parsing certificates: %w", err)
 	}
 	return certs, nil
 }
@@ -377,34 +377,34 @@ func parseSignerInfos(der *cryptobyte.String) (*signerinfo, error) {
 
 	ias, err := parseIssuerAndSerialNumber(&signerInfo)
 	if err != nil {
-		return nil, fmt.Errorf("failed parsing issuer and serial number: %v", err)
+		return nil, fmt.Errorf("failed parsing issuer and serial number: %w", err)
 	}
 	si.IssuerAndSerialnumber = ias
 
 	//digestAlgo
 	algid, err := ParseAlgorithmIdentifier(&signerInfo)
 	if err != nil {
-		return nil, fmt.Errorf("failed parsing digest algorithm: %v", err)
+		return nil, fmt.Errorf("failed parsing digest algorithm: %w", err)
 	}
 	si.DigestAlgorithm = algid
 
 	//attributes
 	attrs, err := parseAttributes(&signerInfo)
 	if err != nil {
-		return nil, fmt.Errorf("failed parsing attributes: %v", err)
+		return nil, fmt.Errorf("failed parsing attributes: %w", err)
 	}
 	si.AuthenticatedAttributes = attrs
 
 	// digest encrypted algorithm
 	algid, err = ParseAlgorithmIdentifier(&signerInfo)
 	if err != nil {
-		return nil, fmt.Errorf("failed parsing encrypted digest algorithm: %v", err)
+		return nil, fmt.Errorf("failed parsing encrypted digest algorithm: %w", err)
 	}
 	si.EncryptedDigestAlgorithm = algid
 
 	digest, err := parseEncryptedDigest(&signerInfo)
 	if err != nil {
-		return nil, fmt.Errorf("failed parsing encrypted digest: %v", err)
+		return nil, fmt.Errorf("failed parsing encrypted digest: %w", err)
 	}
 	si.EncryptedDigest = digest
 
@@ -482,10 +482,10 @@ func ParsePKCS7(b []byte) (*PKCS7, error) {
 	if ok, err := hasContentInfo(&contentInfo); ok {
 		oid, contentInfo, err = ParseContentInfo(&contentInfo)
 		if err != nil {
-			return nil, fmt.Errorf("failed parsing contenting info: %v", err)
+			return nil, fmt.Errorf("failed parsing contenting info: %w", err)
 		}
 	} else if err != nil {
-		return nil, fmt.Errorf("failed checking content info: %v", err)
+		return nil, fmt.Errorf("failed checking content info: %w", err)
 	}
 
 	pkcs.OID = oid
@@ -507,20 +507,20 @@ func ParsePKCS7(b []byte) (*PKCS7, error) {
 
 	algid, err := ParseAlgorithmIdentifier(&digest)
 	if err != nil {
-		return nil, fmt.Errorf("failed algorithm identifier: %v", err)
+		return nil, fmt.Errorf("failed algorithm identifier: %w", err)
 	}
 	pkcs.AlgorithmIdentifier = algid
 
 	oid, content, err := ParseContentInfo(&signedData)
 	if err != nil {
-		return nil, fmt.Errorf("failed parsing content info: %v", err)
+		return nil, fmt.Errorf("failed parsing content info: %w", err)
 	}
 	pkcs.OID = oid
 	pkcs.ContentInfo = content
 
 	certs, err := parseCertificates(&signedData)
 	if err != nil {
-		return nil, fmt.Errorf("failed parsing certificates: %v", err)
+		return nil, fmt.Errorf("failed parsing certificates: %w", err)
 	}
 	pkcs.Certs = certs
 
@@ -532,7 +532,7 @@ func ParsePKCS7(b []byte) (*PKCS7, error) {
 	for !signerInfo.Empty() {
 		si, err := parseSignerInfos(&signerInfo)
 		if err != nil {
-			return nil, fmt.Errorf("failed parsing signer info: %v", err)
+			return nil, fmt.Errorf("failed parsing signer info: %w", err)
 		}
 		pkcs.SignerInfo = append(pkcs.SignerInfo, si)
 	}

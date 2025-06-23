@@ -55,7 +55,7 @@ func Parse(r io.ReaderAt) (*PECOFFBinary, error) {
 
 	f, err := pe.NewFile(r)
 	if err != nil {
-		return nil, fmt.Errorf("failed reading PE file: %v", err)
+		return nil, fmt.Errorf("failed reading PE file: %w", err)
 	}
 	defer f.Close()
 
@@ -248,7 +248,7 @@ func (p *PECOFFBinary) AppendSignature(sig []byte) error {
 	// Write to the 8 byte LimitedReader we have inserted into our MultiWriter
 	var b bytes.Buffer
 	if err := binary.Write(&b, binary.LittleEndian, &p.Datadir); err != nil {
-		return fmt.Errorf("failed appending signature: %v", err)
+		return fmt.Errorf("failed appending signature: %w", err)
 	}
 
 	p.optDataDir = sectionReaderFromBytes(b.Bytes())
@@ -261,10 +261,10 @@ func (p *PECOFFBinary) AppendSignature(sig []byte) error {
 func (p *PECOFFBinary) Sign(key crypto.Signer, cert *x509.Certificate) ([]byte, error) {
 	sig, err := SignAuthenticode(key, cert, makeSectionReader(p.hashContent), crypto.SHA256)
 	if err != nil {
-		return nil, fmt.Errorf("failed signing binary: %v", err)
+		return nil, fmt.Errorf("failed signing binary: %w", err)
 	}
 	if err := p.AppendSignature(sig); err != nil {
-		return nil, fmt.Errorf("failed appending signatures: %v", err)
+		return nil, fmt.Errorf("failed appending signatures: %w", err)
 	}
 	return sig, nil
 }
@@ -273,7 +273,7 @@ func (p *PECOFFBinary) Sign(key crypto.Signer, cert *x509.Certificate) ([]byte, 
 func (p *PECOFFBinary) Verify(cert *x509.Certificate) (bool, error) {
 	sigs, err := p.Signatures()
 	if err != nil {
-		return false, fmt.Errorf("failed fetching certificates from binary: %v", err)
+		return false, fmt.Errorf("failed fetching certificates from binary: %w", err)
 	}
 	if len(sigs) == 0 {
 		return false, ErrNoSignatures
@@ -281,7 +281,7 @@ func (p *PECOFFBinary) Verify(cert *x509.Certificate) (bool, error) {
 	for _, sig := range sigs {
 		authcode, err := ParseAuthenticode(sig.Certificate)
 		if err != nil {
-			return false, fmt.Errorf("failed parsing pkcs7 signature from binary: %v", err)
+			return false, fmt.Errorf("failed parsing pkcs7 signature from binary: %w", err)
 		}
 
 		ok, err := authcode.Verify(cert, makeSectionReader(p.hashContent))
