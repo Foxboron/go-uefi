@@ -8,7 +8,6 @@ import (
 	"crypto/x509/pkix"
 	"errors"
 	"fmt"
-	"log"
 	"math/big"
 	"time"
 
@@ -86,7 +85,7 @@ func SignPKCS7(signer crypto.Signer, cert *x509.Certificate, oid encasn1.ObjectI
 
 	sig, err := signer.Sign(rand.Reader, h.Sum(nil), crypto.SHA256)
 	if err != nil {
-		log.Fatal(err)
+		return nil, err
 	}
 
 	// ContentInfo ::= SEQUENCE
