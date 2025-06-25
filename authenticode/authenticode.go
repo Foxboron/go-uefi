@@ -139,7 +139,7 @@ func SignAuthenticode(signer crypto.Signer, cert *x509.Certificate, digest io.Re
 
 	b, err := CreateSpcIndirectDataContent(h.Sum(nil), alg)
 	if err != nil {
-		return nil, fmt.Errorf("failed creating SpcIndirectDataContent: %v", err)
+		return nil, fmt.Errorf("failed creating SpcIndirectDataContent: %w", err)
 	}
 	return pkcs7.SignPKCS7(signer, cert, OIDSpcIndirectDataContent, b)
 }
@@ -149,7 +149,7 @@ func ParseAuthenticode(b []byte) (*Authenticode, error) {
 	var auth Authenticode
 	pkcs, err := pkcs7.ParsePKCS7(b)
 	if err != nil {
-		return nil, fmt.Errorf("failed parsing authenticode: %v", err)
+		return nil, fmt.Errorf("failed parsing authenticode: %w", err)
 	}
 
 	if !pkcs.OID.Equal(OIDSpcIndirectDataContent) {
@@ -189,7 +189,7 @@ func ParseAuthenticode(b []byte) (*Authenticode, error) {
 
 	algid, err := pkcs7.ParseAlgorithmIdentifier(&der)
 	if err != nil {
-		return nil, fmt.Errorf("failed parsing DigestInfo: %v", err)
+		return nil, fmt.Errorf("failed parsing DigestInfo: %w", err)
 	}
 	auth.Algid = algid
 
