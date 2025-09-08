@@ -53,3 +53,40 @@ func ReadCertFromFile(path string) (*x509.Certificate, error) {
 	}
 	return ReadCert(b)
 }
+
+// ReadCertsFromFile reads multiple certificates from a PEM file
+func ReadCertsFromFile(path string) ([]*x509.Certificate, error) {
+	b, err := os.ReadFile(path)
+	if err != nil {
+		return nil, err
+	}
+	return ReadCerts(b)
+}
+
+// ReadCerts reads multiple certificates from PEM-encoded data
+func ReadCerts(b []byte) ([]*x509.Certificate, error) {
+	var certs []*x509.Certificate
+	for len(b) > 0 {
+		block, rest := pem.Decode(b)
+		if block == nil {
+			break
+		}
+		b = rest
+
+		if block.Type != "CERTIFICATE" {
+			continue
+		}
+
+		cert, err := x509.ParseCertificate(block.Bytes)
+		if err != nil {
+			return nil, fmt.Errorf("failed to parse cert: %w", err)
+		}
+		certs = append(certs, cert)
+	}
+
+	if len(certs) == 0 {
+		return nil, fmt.Errorf("no certificates found in PEM data")
+	}
+
+	return certs, nil
+}

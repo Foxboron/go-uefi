@@ -14,6 +14,7 @@ import (
 	"github.com/pkg/errors"
 
 	"github.com/foxboron/go-uefi/efi/signature"
+	"github.com/foxboron/go-uefi/pkcs7"
 )
 
 var (
@@ -258,8 +259,8 @@ func (p *PECOFFBinary) AppendSignature(sig []byte) error {
 
 // Sign the PE/COFF binary and return the signature.
 // .Bytes() will return the binary with the signature appended.
-func (p *PECOFFBinary) Sign(key crypto.Signer, cert *x509.Certificate) ([]byte, error) {
-	sig, err := SignAuthenticode(key, cert, makeSectionReader(p.hashContent), crypto.SHA256)
+func (p *PECOFFBinary) Sign(key crypto.Signer, cert *x509.Certificate, opts ...pkcs7.Option) ([]byte, error) {
+	sig, err := SignAuthenticode(key, cert, makeSectionReader(p.hashContent), crypto.SHA256, opts...)
 	if err != nil {
 		return nil, fmt.Errorf("failed signing binary: %w", err)
 	}

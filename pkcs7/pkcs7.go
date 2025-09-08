@@ -33,8 +33,9 @@ var (
 )
 
 type Config struct {
-	NoAttr  bool
-	NoCerts bool
+	NoAttr          bool
+	NoCerts         bool
+	AdditionalCerts []*x509.Certificate
 }
 
 type Option func(*Config)
@@ -50,6 +51,13 @@ func NoAttr() Option {
 func NoCerts() Option {
 	return func(c *Config) {
 		c.NoCerts = true
+	}
+}
+
+// WithAdditionalCerts embeds additional certificates (e.g., intermediate CAs) into the signature
+func WithAdditionalCerts(certs []*x509.Certificate) Option {
+	return func(c *Config) {
+		c.AdditionalCerts = certs
 	}
 }
 
@@ -136,8 +144,12 @@ func SignPKCS7(signer crypto.Signer, cert *x509.Certificate, oid encasn1.ObjectI
 				if !config.NoCerts {
 					// certificates [0] IMPLICIT ExtendedCertificatesAndCertificates OPTIONAL
 					b.AddASN1(asn1.Tag(0).ContextSpecific().Constructed(), func(b *cryptobyte.Builder) {
-						// b.AddBytes(signer.Raw)
+						// Add the signing certificate first
 						b.AddBytes(cert.Raw)
+						// Add any additional certificates (e.g., intermediate CAs)
+						for _, additionalCert := range config.AdditionalCerts {
+							b.AddBytes(additionalCert.Raw)
+						}
 					})
 				}
 
