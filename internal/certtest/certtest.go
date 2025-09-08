@@ -140,3 +140,40 @@ func MkSelfSignedCert(t *testing.T) (*rsa.PrivateKey, *x509.Certificate) {
 
 	return key, cert
 }
+
+// MkCert creates a basic self-signed certificate compatible with the legacy InitCert function
+// Returns cert first, then key (for compatibility with existing code)
+func MkCert(t *testing.T) (*x509.Certificate, *rsa.PrivateKey) {
+	t.Helper()
+
+	serialNumber, err := rand.Int(rand.Reader, new(big.Int).Lsh(big.NewInt(1), 128))
+	if err != nil {
+		t.Fatalf("Failed to generate serial number: %v", err)
+	}
+
+	template := x509.Certificate{
+		SerialNumber:       serialNumber,
+		PublicKeyAlgorithm: x509.RSA,
+		SignatureAlgorithm: x509.SHA256WithRSA,
+		Subject: pkix.Name{
+			Country: []string{"TEST STRING"},
+		},
+	}
+
+	key, err := rsa.GenerateKey(rand.Reader, 4096)
+	if err != nil {
+		t.Fatalf("Failed to generate key: %v", err)
+	}
+
+	certDER, err := x509.CreateCertificate(rand.Reader, &template, &template, &key.PublicKey, key)
+	if err != nil {
+		t.Fatalf("Failed to create certificate: %v", err)
+	}
+
+	cert, err := x509.ParseCertificate(certDER)
+	if err != nil {
+		t.Fatalf("Failed to parse certificate: %v", err)
+	}
+
+	return cert, key
+}

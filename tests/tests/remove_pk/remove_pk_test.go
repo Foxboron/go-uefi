@@ -11,6 +11,7 @@ import (
 	"github.com/foxboron/go-uefi/efi/util"
 	"github.com/foxboron/go-uefi/efivar"
 	"github.com/foxboron/go-uefi/efivarfs"
+	"github.com/foxboron/go-uefi/internal/certtest"
 	"github.com/hugelgupf/vmtest/guest"
 )
 
@@ -64,9 +65,9 @@ func TestRotateKeys(t *testing.T) {
 	PKPemOld, _ := os.ReadFile("/testdata/PK/PK.pem")
 
 	// New Keys
-	PKPem, _ := asntest.InitCert()
-	KEKPem, _ := asntest.InitCert()
-	dbPem, _ := asntest.InitCert()
+	PKPem, _ := certtest.MkCert(t)
+	KEKPem, _ := certtest.MkCert(t)
+	dbPem, _ := certtest.MkCert(t)
 
 	PKKeyOldK, _ := util.ReadKey(PKKeyOld)
 	PKPemOldK, _ := util.ReadCert(PKPemOld)

@@ -9,11 +9,12 @@ import (
 	"testing"
 
 	"github.com/foxboron/go-uefi/asntest"
+	"github.com/foxboron/go-uefi/internal/certtest"
 	"golang.org/x/crypto/cryptobyte"
 )
 
 func TestVerifySignature(t *testing.T) {
-	cert, key = InitCert()
+	cert, key := certtest.MkCert(t)
 	// TODO: Introduce negative cases
 	for n, c := range []struct {
 		t       string
@@ -75,7 +76,7 @@ func TestCompareOldImplementation(t *testing.T) {
 	if !testing.Verbose() {
 		return
 	}
-	cert, key := asntest.InitCert()
+	cert, key := certtest.MkCert(t)
 
 	b, err := os.ReadFile("testdata/old_pkcs7_implementation.der")
 	if err != nil {

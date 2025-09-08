@@ -7,10 +7,11 @@ import (
 	"testing"
 
 	"github.com/foxboron/go-uefi/asntest"
+	"github.com/foxboron/go-uefi/internal/certtest"
 )
 
 func TestVerifyAuthenticode(t *testing.T) {
-	cert, key := asntest.InitCert()
+	cert, key := certtest.MkCert(t)
 
 	img := []byte("test")
 	b, err := SignAuthenticode(key, cert, bytes.NewReader(img), crypto.SHA256)
@@ -50,7 +51,7 @@ func TestCompareOldImplementation(t *testing.T) {
 	if !testing.Verbose() {
 		return
 	}
-	cert, key := asntest.InitCert()
+	cert, key := certtest.MkCert(t)
 
 	b, err := os.ReadFile("testdata/old_authenticode_implementation.der")
 	if err != nil {
