@@ -130,7 +130,7 @@ func CreateSpcIndirectDataContent(digest []byte, alg crypto.Hash) ([]byte, error
 
 // SignAuthenticode signs a digest with the SPC Indirect Data Content as
 // specified by the authenticode standard.
-func SignAuthenticode(signer crypto.Signer, cert *x509.Certificate, digest io.Reader, alg crypto.Hash) ([]byte, error) {
+func SignAuthenticode(signer crypto.Signer, cert *x509.Certificate, digest io.Reader, alg crypto.Hash, opts ...pkcs7.Option) ([]byte, error) {
 	h := alg.New()
 
 	if _, err := io.Copy(h, digest); err != nil {
@@ -141,7 +141,7 @@ func SignAuthenticode(signer crypto.Signer, cert *x509.Certificate, digest io.Re
 	if err != nil {
 		return nil, fmt.Errorf("failed creating SpcIndirectDataContent: %w", err)
 	}
-	return pkcs7.SignPKCS7(signer, cert, OIDSpcIndirectDataContent, b)
+	return pkcs7.SignPKCS7(signer, cert, OIDSpcIndirectDataContent, b, opts...)
 }
 
 // ParseAuthenticode parses an Authenticode signature.

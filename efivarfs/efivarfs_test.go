@@ -5,11 +5,11 @@ import (
 	"testing"
 	"testing/fstest"
 
-	"github.com/foxboron/go-uefi/asntest"
 	"github.com/foxboron/go-uefi/efi/efitest"
 	"github.com/foxboron/go-uefi/efi/signature"
 	"github.com/foxboron/go-uefi/efi/util"
 	"github.com/foxboron/go-uefi/efivar"
+	"github.com/foxboron/go-uefi/internal/certtest"
 
 	. "github.com/foxboron/go-uefi/efivarfs/testfs"
 )
@@ -61,7 +61,7 @@ func TestWriteSignatureDatabaseEfivar(t *testing.T) {
 func TestWriteSignatureDatabaseEfivarAuthedUpdate(t *testing.T) {
 	efivarfs := NewTestFS().Open()
 
-	cert, priv := asntest.InitCert()
+	cert, priv := certtest.MkCert(t)
 
 	// Write some test data
 	var wsb signature.SignatureDatabase

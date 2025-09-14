@@ -12,8 +12,8 @@ import (
 	"os"
 	"testing"
 
-	"github.com/foxboron/go-uefi/asntest"
 	"github.com/foxboron/go-uefi/efi/util"
+	"github.com/foxboron/go-uefi/internal/certtest"
 )
 
 func mustHexdump(s string) []byte {
@@ -79,7 +79,7 @@ func TestSignVerify(t *testing.T) {
 		},
 	}
 
-	cert, key := asntest.InitCert()
+	cert, key := certtest.MkCert(t)
 
 	for n, c := range cases {
 		unrecoverable := false
