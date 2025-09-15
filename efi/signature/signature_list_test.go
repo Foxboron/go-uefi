@@ -2,6 +2,7 @@ package signature
 
 import (
 	"bytes"
+	"crypto/x509"
 	"fmt"
 	"os"
 	"path/filepath"
@@ -9,7 +10,6 @@ import (
 
 	"github.com/foxboron/go-uefi/efi/attributes"
 	"github.com/foxboron/go-uefi/efi/util"
-	"go.mozilla.org/pkcs7"
 )
 
 func ReadTestData(dir string) []string {
@@ -31,6 +31,9 @@ var (
 func TestParseSignatureListVars(t *testing.T) {
 	for _, path := range EfivarsTestFiles {
 		attrs, data, err := attributes.ReadEfivarsFile(path)
+		if err != nil {
+			t.Fatal(err)
+		}
 		var pkflags attributes.Attributes
 		pkflags |= attributes.EFI_VARIABLE_NON_VOLATILE
 		pkflags |= attributes.EFI_VARIABLE_BOOTSERVICE_ACCESS
@@ -44,10 +47,11 @@ func TestParseSignatureListVars(t *testing.T) {
 		if err != nil {
 			t.Fatal(err)
 		}
+
 		if util.CmpEFIGUID(c.SignatureType, CERT_X509_GUID) {
 			// Run over and ensure we are getting the correct type
 			for _, d := range c.Signatures {
-				_, err := pkcs7.NewSignedData(d.Data)
+				_, err := x509.ParseCertificate(d.Data)
 				if err != nil {
 					t.Fatal(err)
 				}
@@ -66,7 +70,7 @@ func TestParseSignatureListFile(t *testing.T) {
 		}
 		if util.CmpEFIGUID(c.SignatureType, CERT_X509_GUID) {
 			for _, d := range c.Signatures {
-				_, err := pkcs7.NewSignedData(d.Data)
+				_, err := x509.ParseCertificate(d.Data)
 				if err != nil {
 					t.Fatal(err)
 				}

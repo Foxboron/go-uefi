@@ -4,7 +4,6 @@ go 1.21.0
 
 require (
 	github.com/pkg/errors v0.9.1
-	go.mozilla.org/pkcs7 v0.0.0-20200128120323-432b2356ecb1
 	golang.org/x/crypto v0.31.0
 	golang.org/x/sys v0.28.0
 	golang.org/x/text v0.21.0
