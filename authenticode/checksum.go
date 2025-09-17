@@ -271,7 +271,7 @@ func (p *PECOFFBinary) Sign(key crypto.Signer, cert *x509.Certificate, opts ...p
 }
 
 // Verify signature
-func (p *PECOFFBinary) Verify(cert *x509.Certificate) (bool, error) {
+func (p *PECOFFBinary) Verify(cert *x509.Certificate, opts ...pkcs7.VerifyOption) (bool, error) {
 	sigs, err := p.Signatures()
 	if err != nil {
 		return false, fmt.Errorf("failed fetching certificates from binary: %w", err)
@@ -285,7 +285,7 @@ func (p *PECOFFBinary) Verify(cert *x509.Certificate) (bool, error) {
 			return false, fmt.Errorf("failed parsing pkcs7 signature from binary: %w", err)
 		}
 
-		ok, err := authcode.Verify(cert, makeSectionReader(p.hashContent))
+		ok, err := authcode.Verify(cert, makeSectionReader(p.hashContent), opts...)
 		if err != nil {
 			return false, err
 		}

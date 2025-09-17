@@ -45,6 +45,10 @@ func main() {
 		log.Fatal(err)
 	}
 
+	opts := []pkcs7.Option{
+		pkcs7.WithAuthenticodeTimestamp("http://timestamp.digicert.com"),
+	}
+
 	// Check if additional certificates were provided
 	if *addcert != "" {
 		additionalCerts, err := util.ReadCertsFromFile(*addcert)
@@ -59,12 +63,13 @@ func main() {
 				filteredCerts = append(filteredCerts, c)
 			}
 		}
+		opts = append(opts, pkcs7.WithAdditionalCerts(filteredCerts))
 
-		if _, err = file.Sign(Key, Cert, pkcs7.WithAdditionalCerts(filteredCerts)); err != nil {
+		if _, err = file.Sign(Key, Cert, opts...); err != nil {
 			log.Fatal(err)
 		}
 	} else {
-		if _, err := file.Sign(Key, Cert); err != nil {
+		if _, err := file.Sign(Key, Cert, opts...); err != nil {
 			log.Fatal(err)
 		}
 	}
