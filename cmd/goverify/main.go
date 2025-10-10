@@ -8,6 +8,7 @@ import (
 
 	"github.com/foxboron/go-uefi/authenticode"
 	"github.com/foxboron/go-uefi/efi/util"
+	"github.com/foxboron/go-uefi/pkcs7"
 )
 
 func main() {
@@ -24,21 +25,21 @@ func main() {
 
 	peFile, err := os.Open(args[0])
 	if err != nil {
-		log.Fatal(err)
+		log.Fatalf("Error opening file: %v", err)
 	}
 	x509Cert, err := util.ReadCertFromFile(*cert)
 	if err != nil {
-		log.Fatal(err)
+		log.Fatalf("Error reading cert: %v", err)
 	}
 
 	binary, err := authenticode.Parse(peFile)
 	if err != nil {
-		log.Fatal(err)
+		log.Fatalf("Error parsing binary: %v", err)
 	}
 
-	ok, err := binary.Verify(x509Cert)
+	ok, err := binary.Verify(x509Cert, pkcs7.VerifyTimestamp(nil))
 	if err != nil {
-		log.Fatal(err)
+		log.Fatalf("Error verifying signature: %v", err)
 	}
 
 	if !ok {

@@ -158,6 +158,8 @@ func MkCert(t *testing.T) (*x509.Certificate, *rsa.PrivateKey) {
 		Subject: pkix.Name{
 			Country: []string{"TEST STRING"},
 		},
+		NotBefore: time.Now().Add(-time.Hour),
+		NotAfter:  time.Now().Add(time.Hour),
 	}
 
 	key, err := rsa.GenerateKey(rand.Reader, 4096)

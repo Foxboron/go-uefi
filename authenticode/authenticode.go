@@ -35,7 +35,7 @@ type Authenticode struct {
 
 // Verify validates an authenticode signature.
 // Note it doesn't validate x509 certificate chains.
-func (a *Authenticode) Verify(cert *x509.Certificate, img io.Reader) (bool, error) {
+func (a *Authenticode) Verify(cert *x509.Certificate, img io.Reader, opts ...pkcs7.VerifyOption) (bool, error) {
 	var h hash.Hash
 	switch {
 	case a.Algid.Algorithm.Equal(pkcs7.OIDDigestAlgorithmSHA256):
@@ -56,7 +56,7 @@ func (a *Authenticode) Verify(cert *x509.Certificate, img io.Reader) (bool, erro
 	if !bytes.Equal(digest, a.Digest) {
 		return false, errors.New("incorrect digest")
 	}
-	return a.Pkcs.Verify(cert)
+	return a.Pkcs.Verify(cert, opts...)
 }
 
 // CreateSpcIndirectDataContent creates the SPCIndirectDataContent container as
