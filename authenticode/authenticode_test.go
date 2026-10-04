@@ -3,6 +3,7 @@ package authenticode
 import (
 	"bytes"
 	"crypto"
+	"errors"
 	"os"
 	"testing"
 
@@ -66,4 +67,41 @@ func TestCompareOldImplementation(t *testing.T) {
 
 	// We should see a couple of differences, but largely the same structure should be present
 	asntest.Asn1Compare(t, b, bb)
+}
+
+func TestCheckForgedSignature(t *testing.T) {
+	cert, key := certtest.MkCert(t)
+
+	// The binary we intend to sign
+	original := mustParse(t, "testdata/test.pecoff")
+	sig, err := original.Sign(key, cert)
+	if err != nil {
+		t.Fatal(err)
+	}
+
+	// We graft the above valid signature on to this binary
+	fake := mustParse(t, "../tests/data/binary/HelloWorld.efi")
+
+	forged := bytes.Replace(sig, original.Hash(crypto.SHA256), fake.Hash(crypto.SHA256), 1)
+	if bytes.Equal(forged, sig) {
+		t.Fatalf("digest not found in signature")
+	}
+	if err := fake.AppendSignature(forged); err != nil {
+		t.Fatalf("failed to append the signature ontop of the forged binary")
+	}
+
+	reparsed, err := Parse(bytes.NewReader(fake.Bytes()))
+	if err != nil {
+		t.Fatal(err)
+	}
+
+	ok, err := reparsed.Verify(cert)
+	if ok {
+		t.Fatal("go-uefi accepts a forged sinature")
+	}
+
+	// Check for other errors
+	if !errors.Is(err, ErrNoValidSignatures) {
+		t.Fatal(err)
+	}
 }

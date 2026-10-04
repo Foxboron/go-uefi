@@ -624,6 +624,28 @@ type PKCS7 struct {
 	ExtendedCertData []byte
 }
 
+// verifyHash checks that the hash of ContentInfo matches the hash from the
+// authenticated attributes which the signatures are done over
+// TODO: Move this to the authenticode package
+// TODO: make signerinfo public
+func (p *PKCS7) verifyHash(si *signerinfo) (bool, error) {
+	// If it's not SpcIndirectDataContent we ignore it?
+	if !p.OID.Equal(encasn1.ObjectIdentifier{1, 3, 6, 1, 4, 1, 311, 2, 1, 4}) {
+		return true, nil
+	}
+	content := cryptobyte.String(p.ContentInfo)
+	var spcIndirectDataContent cryptobyte.String
+	if !content.ReadASN1(&spcIndirectDataContent, asn1.SEQUENCE) || !content.Empty() {
+		return false, errors.New("malformed SpcIndirectDataContent")
+	}
+	hh := crypto.SHA256.New()
+	hh.Write(spcIndirectDataContent)
+	if bytes.Equal(si.AuthenticatedAttributes.MessageDigest, hh.Sum(nil)) {
+		return true, nil
+	}
+	return false, nil
+}
+
 func (p *PKCS7) Verify(cert *x509.Certificate, opts ...VerifyOption) (bool, error) {
 	c := &VerifyConfig{}
 	for _, optFunc := range opts {
@@ -635,6 +657,13 @@ func (p *PKCS7) Verify(cert *x509.Certificate, opts ...VerifyOption) (bool, erro
 			continue
 		}
 		ok, err := si.verify(cert)
+		if err != nil {
+			return false, fmt.Errorf("failed validating signature: %w", err)
+		}
+		if !ok {
+			continue
+		}
+		ok, err = p.verifyHash(si)
 		if err != nil {
 			return false, fmt.Errorf("failed validating signature: %w", err)
 		}

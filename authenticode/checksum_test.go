@@ -51,6 +51,15 @@ func mustSigner(s string) crypto.Signer {
 	return k
 }
 
+func mustParse(t *testing.T, s string) *PECOFFBinary {
+	t.Helper()
+	a, err := Parse(bytes.NewReader(mustOpen(s)))
+	if err != nil {
+		t.Fatalf("failed parsing binary '%s' in mustParse: %v", s, err)
+	}
+	return a
+}
+
 func TestSignVerify(t *testing.T) {
 	cases := []struct {
 		f              string
