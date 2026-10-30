@@ -23,6 +23,7 @@ type EFIVars interface {
 	GetVar(efivar.Efivar, efivar.Unmarshallable) error
 	GetVarWithAttributes(efivar.Efivar, efivar.Unmarshallable) (attributes.Attributes, error)
 	WriteVar(efivar.Efivar, efivar.Marshallable) error
+	RemoveVar(efivar.Efivar) error
 }
 
 // EFIFS is a struct that combines reading variables from the file system while also ensuring we are
@@ -51,9 +52,17 @@ func (f *EFIFS) CheckImmutable() *EFIFS {
 	return f
 }
 
-// UnsetImmutable implicitly when writing towards a file.
+// UnsetImmutable implicitly when writing towards a file, and set it again
+// afterwards.
 func (f *EFIFS) UnsetImmutable() *EFIFS {
 	f.FSWrapper.UnsetImmutable()
+	return f
+}
+
+// SetDir reads and writes the variables in dir instead of efivarfs' mount
+// point.
+func (f *EFIFS) SetDir(dir string) *EFIFS {
+	f.FSWrapper.SetDir(dir)
 	return f
 }
 
@@ -89,4 +98,10 @@ func (t *EFIFS) WriteVar(v efivar.Efivar, e efivar.Marshallable) error {
 	var b bytes.Buffer
 	e.Marshal(&b)
 	return t.WriteEfivarsWithGuid(v.Name, v.Attributes, b.Bytes(), *v.GUID)
+}
+
+// RemoveVar removes an EFI variable from the EFIFS. Removing a variable that
+// does not exist is an error, os.ErrNotExist.
+func (t *EFIFS) RemoveVar(v efivar.Efivar) error {
+	return t.RemoveEfivarsWithGuid(v.Name, *v.GUID)
 }

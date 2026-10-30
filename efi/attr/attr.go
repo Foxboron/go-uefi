@@ -63,9 +63,24 @@ func UnsetImmutable(p string) error {
 	return nil
 }
 
-// GetAttr retrieves the attributes of a file on a linux filesystem
+// SetImmutable sets the immutable bit again, after UnsetImmutable
+func SetImmutable(p string) error {
+	a, err := GetAttr(p)
+	if err != nil {
+		return err
+	}
+	a |= FS_IMMUTABLE_FL
+	if err := SetAttr(p, a); err != nil {
+		return err
+	}
+	return nil
+}
+
+// GetAttr retrieves the attributes of a file on a linux filesystem.
+// A file that does not exist is an error, os.ErrNotExist; it is not created:
+// on efivarfs that would create an empty variable.
 func GetAttr(path string) (int32, error) {
-	f, err := os.OpenFile(path, os.O_RDONLY|os.O_CREATE, 0644)
+	f, err := os.OpenFile(path, os.O_RDONLY, 0)
 	if err != nil {
 		return 0, err
 	}
@@ -75,7 +90,7 @@ func GetAttr(path string) (int32, error) {
 
 // SetAttr sets the attributes of a file on a linux filesystem to the given value
 func SetAttr(path string, attr int32) error {
-	f, err := os.OpenFile(path, os.O_RDONLY|os.O_CREATE, 0644)
+	f, err := os.OpenFile(path, os.O_RDONLY, 0)
 	if err != nil {
 		return err
 	}

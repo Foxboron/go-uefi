@@ -41,10 +41,17 @@ type FSWrapper struct {
 	unsetimmutable bool
 	immutable      bool
 	fs             afero.Fs
+	dir            string
 }
 
 func (e *FSWrapper) SetFS(fs afero.Fs) {
 	e.fs = fs
+}
+
+// SetDir sets the directory the variables are in, efivarfs' mount point by
+// default (attributes.Efivars).
+func (e *FSWrapper) SetDir(dir string) {
+	e.dir = dir
 }
 
 func (e *FSWrapper) CheckImmutable() {
@@ -60,6 +67,7 @@ func NewMemoryWrapper() *FSWrapper {
 		unsetimmutable: false,
 		immutable:      false,
 		fs:             afero.NewMemMapFs(),
+		dir:            attributes.Efivars,
 	}
 }
 
@@ -68,33 +76,54 @@ func NewFSWrapper() *FSWrapper {
 		unsetimmutable: false,
 		immutable:      false,
 		fs:             afero.NewOsFs(),
+		dir:            attributes.Efivars,
 	}
 }
 
-func (t *FSWrapper) isimmutable(efivar string) error {
-	if !t.immutable {
-		return nil
+// isimmutable checks the immutable bit before a write or a removal. With
+// UnsetImmutable it is unset, and the function returned sets it again; it is
+// called whether the write succeeded or not. The bit is a file attribute of
+// the operating system's file systems: other file systems have none.
+func (t *FSWrapper) isimmutable(efivar string) (func() error, error) {
+	restore := func() error { return nil }
+	if !t.immutable && !t.unsetimmutable {
+		return restore, nil
+	}
+	if _, ok := t.fs.(*afero.OsFs); !ok {
+		return restore, nil
 	}
 	err := attr.IsImmutable(efivar)
 	switch {
 	case errors.Is(err, attr.ErrIsImmutable):
 		if !t.unsetimmutable {
-			return fmt.Errorf("%s: %w", efivar, errImmutable)
+			return restore, fmt.Errorf("%s: %w", efivar, errImmutable)
 		}
 		if err := attr.UnsetImmutable(efivar); err != nil {
-			return fmt.Errorf("couldn't unset immutable bit: %w", err)
+			return restore, fmt.Errorf("couldn't unset immutable bit: %w", err)
+		}
+		restore = func() error {
+			if err := attr.SetImmutable(efivar); err != nil {
+				return fmt.Errorf("couldn't set immutable bit again: %w", err)
+			}
+			return nil
 		}
 	case errors.Is(err, os.ErrNotExist):
 	case err != nil:
-		return err
+		return restore, err
 	}
-	return nil
+	return restore, nil
 }
 
-func (t *FSWrapper) WriteFile(name string, data []byte, perm os.FileMode) error {
-	if err := t.isimmutable(name); err != nil {
+func (t *FSWrapper) WriteFile(name string, data []byte, perm os.FileMode) (err error) {
+	restore, err := t.isimmutable(name)
+	if err != nil {
 		return err
 	}
+	defer func() {
+		if err1 := restore(); err1 != nil && err == nil {
+			err = err1
+		}
+	}()
 	f, err := t.fs.Create(name)
 	if err != nil {
 		return err
@@ -176,23 +205,35 @@ func (t *FSWrapper) ReadEfivarsFile(filename string) (attributes.Attributes, *by
 	return t.ParseEfivars(f, int(stat.Size()))
 }
 
-func (t *FSWrapper) ReadEfivarsWithGuid(filename string, guid util.EFIGUID) (attributes.Attributes, *bytes.Buffer, error) {
-	f := path.Join(attributes.Efivars, fmt.Sprintf("%s-%s", filename, guid.Format()))
-	return t.ReadEfivarsFile(f)
+// EfivarPath is the file of the variable name with the vendor guid
+func (t *FSWrapper) EfivarPath(name string, guid util.EFIGUID) string {
+	return path.Join(t.dir, fmt.Sprintf("%s-%s", name, guid.Format()))
 }
 
-// Write an EFI variable to sysfs
-// TODO: Fix retryable writes
-func (t *FSWrapper) WriteEfivarsWithGuid(name string, attrs attributes.Attributes, b []byte, guid util.EFIGUID) error {
-	efivar := path.Join(attributes.Efivars, fmt.Sprintf("%s-%s", name, guid.Format()))
+func (t *FSWrapper) ReadEfivarsWithGuid(filename string, guid util.EFIGUID) (attributes.Attributes, *bytes.Buffer, error) {
+	return t.ReadEfivarsFile(t.EfivarPath(filename, guid))
+}
 
-	if err := t.isimmutable(efivar); err != nil {
+// Write an EFI variable to sysfs. efivarfs replaces the variable with each
+// write, and takes it whole or not at all; the file is truncated too, for any
+// other file system.
+// TODO: Fix retryable writes
+func (t *FSWrapper) WriteEfivarsWithGuid(name string, attrs attributes.Attributes, b []byte, guid util.EFIGUID) (err error) {
+	efivar := t.EfivarPath(name, guid)
+
+	restore, err := t.isimmutable(efivar)
+	if err != nil {
 		return err
 	}
+	defer func() {
+		if err1 := restore(); err1 != nil && err == nil {
+			err = err1
+		}
+	}()
 
-	flags := os.O_WRONLY | os.O_CREATE //| os.O_TRUNC
+	flags := os.O_WRONLY | os.O_CREATE | os.O_TRUNC
 	if attrs&attributes.EFI_VARIABLE_APPEND_WRITE != 0 {
-		flags |= os.O_APPEND
+		flags = os.O_WRONLY | os.O_CREATE | os.O_APPEND
 	}
 
 	f, err := t.fs.OpenFile(efivar, flags, 0644)
@@ -205,6 +246,25 @@ func (t *FSWrapper) WriteEfivarsWithGuid(name string, attrs attributes.Attribute
 		return fmt.Errorf("couldn't write efi variable: %w", err)
 	} else if n != len(buf) {
 		return errors.New("could not write the entire buffer")
+	}
+	return nil
+}
+
+// Remove an EFI variable from sysfs. A variable that does not exist is an
+// error, os.ErrNotExist.
+func (t *FSWrapper) RemoveEfivarsWithGuid(name string, guid util.EFIGUID) (err error) {
+	efivar := t.EfivarPath(name, guid)
+
+	restore, err := t.isimmutable(efivar)
+	if err != nil {
+		return err
+	}
+	if err := t.fs.Remove(efivar); err != nil {
+		// The variable is still there: so is its immutable bit
+		if err1 := restore(); err1 != nil {
+			return errors.Join(err, err1)
+		}
+		return err
 	}
 	return nil
 }

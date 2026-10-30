@@ -1,14 +1,21 @@
 package efivarfs_test
 
 import (
+	"bytes"
+	"errors"
+	"os"
+	"path/filepath"
 	"reflect"
 	"testing"
 	"testing/fstest"
 
+	"github.com/foxboron/go-uefi/efi/attr"
+	"github.com/foxboron/go-uefi/efi/attributes"
 	"github.com/foxboron/go-uefi/efi/efitest"
 	"github.com/foxboron/go-uefi/efi/signature"
 	"github.com/foxboron/go-uefi/efi/util"
 	"github.com/foxboron/go-uefi/efivar"
+	"github.com/foxboron/go-uefi/efivarfs"
 	"github.com/foxboron/go-uefi/internal/certtest"
 
 	. "github.com/foxboron/go-uefi/efivarfs/testfs"
@@ -140,5 +147,117 @@ func TestGetLoaderEntrySelected(t *testing.T) {
 
 	if entry != "arch-linux.efi" {
 		t.Fatalf("entry does not match the loader entry")
+	}
+}
+
+var testvar = efivar.Efivar{
+	Name: "TestVar",
+	GUID: util.StringToGUID("2b0f2e5c-6a51-4d63-9f3a-9b1f6c1c7a10"),
+	Attributes: attributes.EFI_VARIABLE_NON_VOLATILE |
+		attributes.EFI_VARIABLE_BOOTSERVICE_ACCESS |
+		attributes.EFI_VARIABLE_RUNTIME_ACCESS,
+}
+
+func TestRemoveEfivar(t *testing.T) {
+	efivarfs := NewTestFS().Open()
+
+	data := efivar.Efibytes("some data")
+	if err := efivarfs.WriteVar(testvar, data); err != nil {
+		t.Fatalf("encountered error: %v", err)
+	}
+	if err := efivarfs.RemoveVar(testvar); err != nil {
+		t.Fatalf("encountered error: %v", err)
+	}
+
+	var rb efivar.Efibytes
+	if err := efivarfs.GetVar(testvar, &rb); !errors.Is(err, os.ErrNotExist) {
+		t.Fatalf("expected the variable to be gone, got %v", err)
+	}
+	if err := efivarfs.RemoveVar(testvar); !errors.Is(err, os.ErrNotExist) {
+		t.Fatalf("expected os.ErrNotExist removing a missing variable, got %v", err)
+	}
+}
+
+func TestWriteEfivarReplaces(t *testing.T) {
+	efivarfs := NewTestFS().Open()
+
+	for _, data := range []efivar.Efibytes{efivar.Efibytes("a longer value"), efivar.Efibytes("short")} {
+		if err := efivarfs.WriteVar(testvar, data); err != nil {
+			t.Fatalf("encountered error: %v", err)
+		}
+		var rb efivar.Efibytes
+		if err := efivarfs.GetVar(testvar, &rb); err != nil {
+			t.Fatalf("encountered error: %v", err)
+		}
+		if !bytes.Equal(rb, data) {
+			t.Fatalf("expected %q got %q", data, rb)
+		}
+	}
+}
+
+func TestSetDir(t *testing.T) {
+	dir := t.TempDir()
+	efivarfs := efivarfs.NewFS().SetDir(dir).Open()
+
+	for _, data := range []efivar.Efibytes{efivar.Efibytes("a longer value"), efivar.Efibytes("short")} {
+		if err := efivarfs.WriteVar(testvar, data); err != nil {
+			t.Fatalf("encountered error: %v", err)
+		}
+	}
+
+	b, err := os.ReadFile(filepath.Join(dir, "TestVar-2b0f2e5c-6a51-4d63-9f3a-9b1f6c1c7a10"))
+	if err != nil {
+		t.Fatalf("encountered error: %v", err)
+	}
+	if want := append([]byte{0x07, 0x00, 0x00, 0x00}, "short"...); !bytes.Equal(b, want) {
+		t.Fatalf("expected %x got %x", want, b)
+	}
+
+	var rb efivar.Efibytes
+	if err := efivarfs.GetVar(testvar, &rb); err != nil || string(rb) != "short" {
+		t.Fatalf("expected 'short' got '%s' (%v)", rb, err)
+	}
+	if err := efivarfs.RemoveVar(testvar); err != nil {
+		t.Fatalf("encountered error: %v", err)
+	}
+	if _, err := os.Stat(filepath.Join(dir, "TestVar-2b0f2e5c-6a51-4d63-9f3a-9b1f6c1c7a10")); !errors.Is(err, os.ErrNotExist) {
+		t.Fatalf("expected the file to be gone, got %v", err)
+	}
+}
+
+// Needs CAP_LINUX_IMMUTABLE and a file system with the immutable bit (tmpfs
+// has it since Linux 6.0); skipped otherwise.
+func TestUnsetImmutable(t *testing.T) {
+	dir := t.TempDir()
+	file := filepath.Join(dir, "TestVar-2b0f2e5c-6a51-4d63-9f3a-9b1f6c1c7a10")
+	if err := os.WriteFile(file, []byte{0x07, 0x00, 0x00, 0x00, 0x01}, 0644); err != nil {
+		t.Fatal(err)
+	}
+	if err := attr.SetImmutable(file); err != nil {
+		t.Skipf("no immutable bit here: %v", err)
+	}
+	t.Cleanup(func() { attr.UnsetImmutable(file) })
+
+	checked := efivarfs.NewFS().SetDir(dir).CheckImmutable().Open()
+	if err := checked.WriteVar(testvar, efivar.Efibytes("new")); !errors.Is(err, efivarfs.ErrImmutable) {
+		t.Fatalf("expected ErrImmutable, got %v", err)
+	}
+	if err := checked.RemoveVar(testvar); !errors.Is(err, efivarfs.ErrImmutable) {
+		t.Fatalf("expected ErrImmutable, got %v", err)
+	}
+
+	unset := efivarfs.NewFS().SetDir(dir).UnsetImmutable().Open()
+	if err := unset.WriteVar(testvar, efivar.Efibytes("new")); err != nil {
+		t.Fatalf("encountered error: %v", err)
+	}
+	if err := attr.IsImmutable(file); !errors.Is(err, attr.ErrIsImmutable) {
+		t.Fatalf("expected the immutable bit to be set again, got %v", err)
+	}
+	var rb efivar.Efibytes
+	if err := unset.GetVar(testvar, &rb); err != nil || string(rb) != "new" {
+		t.Fatalf("expected 'new' got '%s' (%v)", rb, err)
+	}
+	if err := unset.RemoveVar(testvar); err != nil {
+		t.Fatalf("encountered error: %v", err)
 	}
 }

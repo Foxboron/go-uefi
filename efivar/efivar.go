@@ -233,6 +233,22 @@ type Unmarshallable interface {
 
 // Some basic UEFI types
 
+// Efibytes is a variable's data as it is, for variables of no other type.
+type Efibytes []byte
+
+func (eb *Efibytes) Unmarshal(b *bytes.Buffer) error {
+	*eb = bytes.Clone(b.Bytes())
+	return nil
+}
+
+func (eb Efibytes) Marshal(b *bytes.Buffer) {
+	b.Write(eb)
+}
+
+func (eb Efibytes) Bytes() []byte {
+	return []byte(eb)
+}
+
 type Efistring string
 
 func (es *Efistring) Unmarshal(b *bytes.Buffer) error {
