@@ -42,6 +42,6 @@ require (
 	golang.org/x/mod v0.20.0 // indirect
 	golang.org/x/net v0.33.0 // indirect
 	golang.org/x/sync v0.10.0 // indirect
-	golang.org/x/tools v0.24.0 // indirect
+	golang.org/x/tools v0.24.1 // indirect
 	src.elv.sh v0.16.0-rc1.0.20220116211855-fda62502ad7f // indirect
 )
