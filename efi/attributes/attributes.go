@@ -81,6 +81,9 @@ var (
 )
 
 func ParseEfivars(f io.Reader, size int) (Attributes, *bytes.Buffer, error) {
+	if size < SizeofAttributes {
+		return 0, nil, fmt.Errorf("variable size %d is smaller than its attributes: %w", size, io.ErrUnexpectedEOF)
+	}
 	var attrs Attributes
 	if err := binary.Read(f, binary.LittleEndian, &attrs); err != nil {
 		return 0, nil, fmt.Errorf("could not read file: %w", err)
@@ -99,11 +102,12 @@ func ReadEfivarsFile(filename string) (Attributes, *bytes.Buffer, error) {
 		return 0, nil, err
 	}
 	defer f.Close()
-	stat, err := f.Stat()
+	// Some efivarfs files report a zero stat size despite containing data.
+	data, err := io.ReadAll(f)
 	if err != nil {
-		return 0, nil, fmt.Errorf("could not stat file descriptor: %w", err)
+		return 0, nil, fmt.Errorf("could not read file: %w", err)
 	}
-	return ParseEfivars(f, int(stat.Size()))
+	return ParseEfivars(bytes.NewReader(data), len(data))
 }
 
 func ReadEfivarsWithGuid(filename string, guid util.EFIGUID) (Attributes, *bytes.Buffer, error) {

@@ -2,7 +2,6 @@ package fswrapper
 
 import (
 	"bytes"
-	"encoding/binary"
 	"errors"
 	"fmt"
 	"io"
@@ -151,29 +150,16 @@ func (t *FSWrapper) Open(name string) (fs.File, error) {
 }
 
 func (t *FSWrapper) ParseEfivars(f io.Reader, size int) (attributes.Attributes, *bytes.Buffer, error) {
-	var attrs attributes.Attributes
-	if err := binary.Read(f, binary.LittleEndian, &attrs); err != nil {
-		return 0, nil, fmt.Errorf("could not read file: %w", err)
-	}
-	buf := make([]byte, size-attributes.SizeofAttributes)
-	if err := binary.Read(f, binary.LittleEndian, &buf); err != nil {
-		return 0, nil, err
-	}
-	return attrs, bytes.NewBuffer(buf), nil
+	return attributes.ParseEfivars(f, size)
 }
 
 // For a full path instead of the inferred efivars path
 func (t *FSWrapper) ReadEfivarsFile(filename string) (attributes.Attributes, *bytes.Buffer, error) {
-	f, err := t.fs.Open(filename)
+	data, err := t.ReadFile(filename)
 	if err != nil {
 		return 0, nil, err
 	}
-	defer f.Close()
-	stat, err := f.Stat()
-	if err != nil {
-		return 0, nil, fmt.Errorf("could not stat file descriptor: %w", err)
-	}
-	return t.ParseEfivars(f, int(stat.Size()))
+	return t.ParseEfivars(bytes.NewReader(data), len(data))
 }
 
 func (t *FSWrapper) ReadEfivarsWithGuid(filename string, guid util.EFIGUID) (attributes.Attributes, *bytes.Buffer, error) {
